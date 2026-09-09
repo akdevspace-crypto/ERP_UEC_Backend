@@ -44,6 +44,7 @@ export const auth = async (req, res, next) => { console.log('AUTH HIT:', req.met
                     select: {
                         id: true,
                         empId: true,
+                        department: true,
                         metadata: true
                     }
                 }

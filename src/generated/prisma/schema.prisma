@@ -444,7 +444,7 @@ model Enquiry {
 
 model Admission {
   id                String              @id @default(uuid())
-  enquiryId         String              @unique
+  enquiryId         String?             @unique
   patientId         String
   tenantId          String
   unitId            String
@@ -459,11 +459,12 @@ model Admission {
   dischargedAt      DateTime?
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
-  enquiry           Enquiry             @relation(fields: [enquiryId], references: [id])
+  enquiry           Enquiry?            @relation(fields: [enquiryId], references: [id])
   patient           Patient             @relation(fields: [patientId], references: [id])
   MedicalAssignment MedicalAssignment[]
   serviceContract   ServiceContract?
   serviceClosure    ServiceClosure?
+  allocation        Allocation?
 
   @@index([tenantId])
   @@index([unitId])
@@ -506,7 +507,8 @@ model FollowUp {
 model Allocation {
   id                String               @id @default(uuid())
   refNo             String               @unique
-  enquiryId         String               @unique
+  enquiryId         String?              @unique
+  admissionId       String?              @unique
   type              AllocationType       @default(HOME_CARE)
   staffId           String?
   startDate         DateTime?
@@ -521,7 +523,8 @@ model Allocation {
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt
   accounts          AccountTransaction[]
-  enquiry           Enquiry              @relation(fields: [enquiryId], references: [id])
+  enquiry           Enquiry?             @relation(fields: [enquiryId], references: [id])
+  admission         Admission?           @relation(fields: [admissionId], references: [id])
   staff             Staff?               @relation(fields: [staffId], references: [id])
   MedicalAssignment MedicalAssignment[]
 
@@ -851,6 +854,7 @@ model StockMovement {
 model Room {
   id        String    @id @default(uuid())
   code      String    @unique
+  floor     String?
   type      String
   capacity  Int       @default(1)
   status    Boolean   @default(true)
@@ -875,6 +879,9 @@ model VitalSign {
   spO2              Int?
   bloodSugar        String?
   notes             String?
+  shift             String?
+  recordedAt        DateTime           @default(now())
+  department        String?
   recordedById      String
   verified          Boolean            @default(false)
   verifiedBy        String?
@@ -890,6 +897,7 @@ model VitalSign {
 
   @@index([patientId])
   @@index([patientId, createdAt])
+  @@index([patientId, recordedAt])
   @@index([tenantId])
 }
 

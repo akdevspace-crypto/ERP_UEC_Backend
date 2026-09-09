@@ -594,15 +594,30 @@ router.put('/patients/:id', auth, enforceTenant, async (req: any, res: any) => {
 // POST /admissions - Admission
 router.post('/admissions', auth, enforceTenant, async (req: any, res: any) => {
     try {
+        console.log('ADMISSION PAYLOAD:', req.body);
         const { enquiryId, patientId, admissionPriority, healthCondition, clinicalStatus, floor, room, bed, unitId } = req.body;
         
         if (!patientId) {
             return res.status(400).json({ success: false, message: 'Patient ID is required' });
         }
 
+        let actualEnquiryId = enquiryId;
+        if (enquiryId) {
+            // Check if it's a refNo (e.g., ENQ-12345) rather than a UUID
+            if (enquiryId.startsWith('ENQ-')) {
+                const enquiry = await (prisma as any).enquiry.findUnique({
+                    where: { refNo: enquiryId }
+                });
+                if (!enquiry) {
+                    return res.status(400).json({ success: false, message: 'Invalid Enquiry Reference Number' });
+                }
+                actualEnquiryId = enquiry.id;
+            }
+        }
+
         const newAdmission = await (prisma as any).admission.create({
             data: {
-                enquiryId: enquiryId || `ENQ-${Date.now()}`, // Normally requires a valid Enquiry ID
+                ...(actualEnquiryId ? { enquiryId: actualEnquiryId } : {}),
                 patientId, admissionPriority, healthCondition, clinicalStatus, floor, room, bed,
                 unitId: unitId || req.context?.unitId || req.user.unitId,
                 tenantId: req.user.tenantId,
@@ -610,9 +625,31 @@ router.post('/admissions', auth, enforceTenant, async (req: any, res: any) => {
             }
         });
 
+        // Automatically create a Clinical Care Allocation
+        const allocationRef = await generateRefNumber('ALC', req.user.tenantId, newAdmission.unitId, prisma);
+        await (prisma as any).allocation.create({
+            data: {
+                refNo: allocationRef,
+                ...(actualEnquiryId ? { enquiryId: actualEnquiryId } : {}),
+                admissionId: newAdmission.id,
+                type: 'CLINICAL',
+                status: 'ALLOCATED',
+                tenantId: req.user.tenantId,
+                unitId: newAdmission.unitId,
+                metadata: {
+                    handoffSource: 'ADMISSION_SYSTEM'
+                }
+            }
+        });
+
         res.status(201).json({ success: true, data: newAdmission });
     } catch (error: any) {
-        res.status(500).json({ success: false, message: error.message });
+        console.error("ADMISSION CREATION ERROR:", error);
+        res.status(500).json({ 
+            success: false, 
+            message: error instanceof Error ? error.message : (error?.message || String(error)),
+            error: error
+        });
     }
 });
 

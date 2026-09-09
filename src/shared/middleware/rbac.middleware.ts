@@ -7,7 +7,11 @@ interface AuthenticatedRequest extends Request {
 export const requireRoles = (allowedRoles: string[]) => {
     return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
         try {
-            const userRole = String(req.user?.role || req.user?.roleName || '').trim().toUpperCase();
+            let rawRole = req.user?.role;
+            if (rawRole && typeof rawRole === 'object' && rawRole.name) {
+                rawRole = rawRole.name;
+            }
+            const userRole = String(rawRole || req.user?.roleName || '').trim().toUpperCase().replace(/\s+/g, '_');
 
             // We do not auto-bypass for SUPER_ADMIN anymore unless explicitly in allowedRoles.
             // If SUPER_ADMIN is meant to have all access, they should have the 'ALL_ACCESS' permission,

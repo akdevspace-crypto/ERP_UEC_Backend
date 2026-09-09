@@ -1,6 +1,6 @@
 import { prisma } from '../../app/prisma.js';
 import { sendNotification } from '../notification/service.js';
-import { verifyStaffAssignment } from '../medical/service.js';
+import { resolveNursingStaffAssignment } from '../nursing_care/service.js';
 
 const toAdlRecord = (row: any, patientMap = new Map<string, any>()) => {
     const patientId = String(row.patientId || '');
@@ -81,10 +81,17 @@ const notifyDailyCareSummary = async (patientName: string, patientId: string, sc
 // ADL Records
 // ==========================================
 
-export const getAdlRecordsService = async (patientId: string | undefined, scope: { tenantId: string; unitId?: string }) => {
+export const getAdlRecordsService = async (patientId: string | undefined, scope: { tenantId: string; unitId?: string }, user?: any) => {
+    const staff = user?.id
+        ? await (prisma as any).staff.findFirst({
+            where: { userId: user.id, tenantId: scope.tenantId, isDeleted: false },
+            select: { unitId: true }
+        })
+        : null;
+    const operationalScope = { tenantId: scope.tenantId, unitId: staff?.unitId || scope.unitId };
     const records = await (prisma as any).aDLRecord.findMany({
         where: {
-            ...scope,
+            ...operationalScope,
             ...(patientId ? { patientId } : {})
         },
         orderBy: { createdAt: 'desc' }
@@ -93,7 +100,7 @@ export const getAdlRecordsService = async (patientId: string | undefined, scope:
     const patientIds = Array.from(new Set(records.map((record: any) => record.patientId).filter(Boolean)));
     const patients = patientIds.length
         ? await (prisma as any).patient.findMany({
-            where: { id: { in: patientIds as string[] }, ...scope },
+            where: { id: { in: patientIds as string[] }, tenantId: scope.tenantId },
             select: { id: true, name: true, tenantId: true, unitId: true, createdAt: true, updatedAt: true }
         })
         : [];
@@ -104,7 +111,7 @@ export const getAdlRecordsService = async (patientId: string | undefined, scope:
 
 export const createAdlRecordService = async (validated: any, scope: { tenantId: string; unitId: string }, user: any) => {
     const patient = await (prisma as any).patient.findFirst({
-        where: { id: validated.patientId, ...scope },
+        where: { id: validated.patientId, tenantId: scope.tenantId },
         select: { id: true, name: true, tenantId: true, unitId: true, createdAt: true, updatedAt: true }
     });
 
@@ -112,7 +119,7 @@ export const createAdlRecordService = async (validated: any, scope: { tenantId: 
         throw new Error('Patient not found');
     }
 
-    const authCheck = await verifyStaffAssignment(scope.tenantId, scope.unitId, user, patient.id);
+    const authCheck = await resolveNursingStaffAssignment(scope.tenantId, user, patient.id, validated.assignmentId);
     if (!authCheck.authorized) {
         throw new Error(`Not authorized: ${authCheck.reason}`);
     }
@@ -132,7 +139,8 @@ export const createAdlRecordService = async (validated: any, scope: { tenantId: 
             status: 'ASSIGNED',
             requiresVerification: true, 
             recordedById: user.id,
-            ...scope
+            tenantId: scope.tenantId,
+            unitId: authCheck.staff?.unitId || scope.unitId
         }
     });
 

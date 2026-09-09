@@ -9,7 +9,7 @@ const getScope = (req: any) => ({
 export const getAdlRecords = async (req: any, res: any, next: any) => {
     try {
         const patientId = req.query.patientId ? String(req.query.patientId).trim() : undefined;
-        const data = await getAdlRecordsService(patientId, getScope(req));
+        const data = await getAdlRecordsService(patientId, getScope(req), req.user);
         res.json({ success: true, data });
     } catch (error: any) {
         res.status(500).json({ success: false, message: error.message });

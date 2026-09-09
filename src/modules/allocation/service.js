@@ -10,6 +10,72 @@ const buildAllocationDutyDescription = (allocation, notes) => [
     notes ? `Notes: ${notes}` : null
 ].filter(Boolean).join('\n');
 
+const syncMedicalAssignment = async (allocation) => {
+    if (!allocation?.staffId || allocation.status !== 'ALLOCATED') return;
+
+    try {
+        const existingAssignment = await prisma.medicalAssignment.findFirst({
+            where: {
+                allocationId: allocation.id,
+                tenantId: allocation.tenantId,
+                isDeleted: false
+            }
+        });
+
+        const staff = allocation.staff || await prisma.staff.findFirst({
+            where: { id: allocation.staffId, isDeleted: false }
+        });
+
+        const medData = {
+            staffId: allocation.staffId,
+            patientId: allocation.admission?.patientId || allocation.enquiry?.admission?.patient?.id || null,
+            admissionId: allocation.admissionId || null,
+            enquiryId: allocation.enquiryId || null,
+            allocationId: allocation.id,
+            startAt: allocation.startDate || new Date(),
+            endAt: allocation.endDate || null,
+            status: 'ASSIGNED',
+            dutyType: 'ROUND',
+            role: staff?.designation || staff?.department || null,
+            notes: allocation.metadata?.notes || null
+        };
+
+        let finalAssignment;
+        if (existingAssignment) {
+            finalAssignment = await prisma.medicalAssignment.update({
+                where: { id: existingAssignment.id },
+                data: {
+                    ...medData,
+                    startAt: medData.startAt || existingAssignment.startAt,
+                    status: existingAssignment.status
+                }
+            });
+        } else {
+            console.log('Creating new MedicalAssignment for allocation', allocation.id);
+            const { randomUUID } = await import('crypto');
+            const { generateRefNumber } = await import('../../shared/utils/refGenerator.js');
+            finalAssignment = await prisma.medicalAssignment.create({
+                data: {
+                    id: randomUUID(),
+                    refNo: await generateRefNumber('MED', allocation.tenantId, allocation.unitId, prisma),
+                    ...medData,
+                    tenantId: allocation.tenantId,
+                    unitId: allocation.unitId
+                }
+            });
+            console.log('Created MedicalAssignment:', finalAssignment.id);
+        }
+
+        const staffName = `${staff.firstName || ''} ${staff.lastName || ''}`.trim();
+        console.log('Generating operational tasks for assignment...', finalAssignment.id);
+        const { generateOperationalTasksForAssignment } = await import('../medical/service.js');
+        await generateOperationalTasksForAssignment(prisma, finalAssignment, staffName);
+        console.log('Successfully generated tasks');
+    } catch (e) {
+        console.error('Failed to sync MedicalAssignment from Allocation:', e);
+    }
+};
+
 const syncAllocationDutyTask = async (allocation) => {
     if (!allocation?.staffId || allocation.status !== 'ALLOCATED') return;
 
@@ -201,6 +267,7 @@ export const createAllocation = async (tenantId, unitId, data) => {
         }
     }));
 
+    await syncMedicalAssignment(allocation);
     await syncAllocationDutyTask(allocation);
 
     return allocation;
@@ -226,29 +293,26 @@ export const getAllocationsByType = async (tenantId, unitId, type) => {
                     refNo: true,
                     rawMessage: true,
                     client: {
-                        select: {
-                            id: true,
-                            name: true,
-                            mobile: true
-                        }
+                        select: { id: true, name: true, mobile: true }
                     },
                     service: {
-                        select: {
-                            id: true,
-                            name: true
-                        }
+                        select: { id: true, name: true }
                     },
                     admission: {
                         select: {
                             id: true,
-                            patient: {
-                                select: {
-                                    id: true,
-                                    name: true
-                                }
-                            }
+                            patient: { select: { id: true, name: true } }
                         }
                     }
+                }
+            },
+            admission: {
+                select: {
+                    id: true,
+                    patient: { select: { id: true, name: true, phone: true, age: true, gender: true } },
+                    floor: true,
+                    room: true,
+                    bed: true
                 }
             },
             staff: {
@@ -263,7 +327,19 @@ export const getAllocationsByType = async (tenantId, unitId, type) => {
         orderBy: { createdAt: 'desc' }
     });
 
-    return allocations.filter((allocation) => (
+    return allocations.map((allocation) => {
+        // Normalize patient information so frontend doesn't need to check both paths
+        const patientName = allocation.admission?.patient?.name || allocation.enquiry?.admission?.patient?.name || 'Patient';
+        const patientId = allocation.admission?.patient?.id || allocation.enquiry?.admission?.patient?.id || null;
+        const phone = allocation.admission?.patient?.phone || allocation.enquiry?.client?.mobile || null;
+        const age = allocation.admission?.patient?.age || null;
+        const gender = allocation.admission?.patient?.gender || null;
+
+        return {
+            ...allocation,
+            resolvedPatient: { id: patientId, name: patientName, phone, age, gender }
+        };
+    }).filter((allocation) => (
         !allocation.metadata?.demo &&
         !isDemoReference(allocation.refNo) &&
         !isDemoReference(allocation.enquiry?.refNo) &&
@@ -350,10 +426,20 @@ export const updateAllocation = async (tenantId, unitId, id, data) => {
                     lastName: true,
                     empId: true
                 }
+            },
+            admission: {
+                select: {
+                    id: true,
+                    patientId: true,
+                    patient: {
+                        select: { id: true, name: true }
+                    }
+                }
             }
         }
     });
 
+    await syncMedicalAssignment(allocation);
     await syncAllocationDutyTask(allocation);
 
     return allocation;

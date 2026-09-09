@@ -14,7 +14,7 @@ export const handleCreateRoom = async (req, res, next) => {
 
 export const handleGetRooms = async (req, res, next) => {
     try {
-        const records = await roomService.getRooms(req.user.unitId, req.user.tenantId);
+        const records = await roomService.getRooms(req.user.unitId, req.user.tenantId, req.query.floorId);
         return successResponse(res, records, 'Rooms retrieved successfully');
     } catch (error) {
         next(error);

@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 export const adlSchema = z.object({
     patientId: z.string().uuid(),
+    assignmentId: z.string().uuid().optional(),
     activityCategory: z.string().min(1),
     isMandatory: z.boolean().default(false),
     assignedStaffId: z.string().uuid().optional(),

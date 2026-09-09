@@ -32182,7 +32182,7 @@ export namespace Prisma {
 
   export type AdmissionGroupByOutputType = {
     id: string
-    enquiryId: string
+    enquiryId: string | null
     patientId: string
     tenantId: string
     unitId: string
@@ -32233,11 +32233,12 @@ export namespace Prisma {
     dischargedAt?: boolean
     createdAt?: boolean
     updatedAt?: boolean
-    enquiry?: boolean | EnquiryDefaultArgs<ExtArgs>
+    enquiry?: boolean | Admission$enquiryArgs<ExtArgs>
     patient?: boolean | PatientDefaultArgs<ExtArgs>
     MedicalAssignment?: boolean | Admission$MedicalAssignmentArgs<ExtArgs>
     serviceContract?: boolean | Admission$serviceContractArgs<ExtArgs>
     serviceClosure?: boolean | Admission$serviceClosureArgs<ExtArgs>
+    allocation?: boolean | Admission$allocationArgs<ExtArgs>
     _count?: boolean | AdmissionCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["admission"]>
 
@@ -32258,7 +32259,7 @@ export namespace Prisma {
     dischargedAt?: boolean
     createdAt?: boolean
     updatedAt?: boolean
-    enquiry?: boolean | EnquiryDefaultArgs<ExtArgs>
+    enquiry?: boolean | Admission$enquiryArgs<ExtArgs>
     patient?: boolean | PatientDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["admission"]>
 
@@ -32282,30 +32283,32 @@ export namespace Prisma {
   }
 
   export type AdmissionInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    enquiry?: boolean | EnquiryDefaultArgs<ExtArgs>
+    enquiry?: boolean | Admission$enquiryArgs<ExtArgs>
     patient?: boolean | PatientDefaultArgs<ExtArgs>
     MedicalAssignment?: boolean | Admission$MedicalAssignmentArgs<ExtArgs>
     serviceContract?: boolean | Admission$serviceContractArgs<ExtArgs>
     serviceClosure?: boolean | Admission$serviceClosureArgs<ExtArgs>
+    allocation?: boolean | Admission$allocationArgs<ExtArgs>
     _count?: boolean | AdmissionCountOutputTypeDefaultArgs<ExtArgs>
   }
   export type AdmissionIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    enquiry?: boolean | EnquiryDefaultArgs<ExtArgs>
+    enquiry?: boolean | Admission$enquiryArgs<ExtArgs>
     patient?: boolean | PatientDefaultArgs<ExtArgs>
   }
 
   export type $AdmissionPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     name: "Admission"
     objects: {
-      enquiry: Prisma.$EnquiryPayload<ExtArgs>
+      enquiry: Prisma.$EnquiryPayload<ExtArgs> | null
       patient: Prisma.$PatientPayload<ExtArgs>
       MedicalAssignment: Prisma.$MedicalAssignmentPayload<ExtArgs>[]
       serviceContract: Prisma.$ServiceContractPayload<ExtArgs> | null
       serviceClosure: Prisma.$ServiceClosurePayload<ExtArgs> | null
+      allocation: Prisma.$AllocationPayload<ExtArgs> | null
     }
     scalars: $Extensions.GetPayloadResult<{
       id: string
-      enquiryId: string
+      enquiryId: string | null
       patientId: string
       tenantId: string
       unitId: string
@@ -32684,11 +32687,12 @@ export namespace Prisma {
    */
   export interface Prisma__AdmissionClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> extends Prisma.PrismaPromise<T> {
     readonly [Symbol.toStringTag]: "PrismaPromise"
-    enquiry<T extends EnquiryDefaultArgs<ExtArgs> = {}>(args?: Subset<T, EnquiryDefaultArgs<ExtArgs>>): Prisma__EnquiryClient<$Result.GetResult<Prisma.$EnquiryPayload<ExtArgs>, T, "findUniqueOrThrow"> | Null, Null, ExtArgs>
+    enquiry<T extends Admission$enquiryArgs<ExtArgs> = {}>(args?: Subset<T, Admission$enquiryArgs<ExtArgs>>): Prisma__EnquiryClient<$Result.GetResult<Prisma.$EnquiryPayload<ExtArgs>, T, "findUniqueOrThrow"> | null, null, ExtArgs>
     patient<T extends PatientDefaultArgs<ExtArgs> = {}>(args?: Subset<T, PatientDefaultArgs<ExtArgs>>): Prisma__PatientClient<$Result.GetResult<Prisma.$PatientPayload<ExtArgs>, T, "findUniqueOrThrow"> | Null, Null, ExtArgs>
     MedicalAssignment<T extends Admission$MedicalAssignmentArgs<ExtArgs> = {}>(args?: Subset<T, Admission$MedicalAssignmentArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$MedicalAssignmentPayload<ExtArgs>, T, "findMany"> | Null>
     serviceContract<T extends Admission$serviceContractArgs<ExtArgs> = {}>(args?: Subset<T, Admission$serviceContractArgs<ExtArgs>>): Prisma__ServiceContractClient<$Result.GetResult<Prisma.$ServiceContractPayload<ExtArgs>, T, "findUniqueOrThrow"> | null, null, ExtArgs>
     serviceClosure<T extends Admission$serviceClosureArgs<ExtArgs> = {}>(args?: Subset<T, Admission$serviceClosureArgs<ExtArgs>>): Prisma__ServiceClosureClient<$Result.GetResult<Prisma.$ServiceClosurePayload<ExtArgs>, T, "findUniqueOrThrow"> | null, null, ExtArgs>
+    allocation<T extends Admission$allocationArgs<ExtArgs> = {}>(args?: Subset<T, Admission$allocationArgs<ExtArgs>>): Prisma__AllocationClient<$Result.GetResult<Prisma.$AllocationPayload<ExtArgs>, T, "findUniqueOrThrow"> | null, null, ExtArgs>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -33052,6 +33056,21 @@ export namespace Prisma {
   }
 
   /**
+   * Admission.enquiry
+   */
+  export type Admission$enquiryArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Enquiry
+     */
+    select?: EnquirySelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: EnquiryInclude<ExtArgs> | null
+    where?: EnquiryWhereInput
+  }
+
+  /**
    * Admission.MedicalAssignment
    */
   export type Admission$MedicalAssignmentArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -33099,6 +33118,21 @@ export namespace Prisma {
      */
     include?: ServiceClosureInclude<ExtArgs> | null
     where?: ServiceClosureWhereInput
+  }
+
+  /**
+   * Admission.allocation
+   */
+  export type Admission$allocationArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Allocation
+     */
+    select?: AllocationSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: AllocationInclude<ExtArgs> | null
+    where?: AllocationWhereInput
   }
 
   /**
@@ -34351,6 +34385,7 @@ export namespace Prisma {
     id: string | null
     refNo: string | null
     enquiryId: string | null
+    admissionId: string | null
     type: $Enums.AllocationType | null
     staffId: string | null
     startDate: Date | null
@@ -34369,6 +34404,7 @@ export namespace Prisma {
     id: string | null
     refNo: string | null
     enquiryId: string | null
+    admissionId: string | null
     type: $Enums.AllocationType | null
     staffId: string | null
     startDate: Date | null
@@ -34387,6 +34423,7 @@ export namespace Prisma {
     id: number
     refNo: number
     enquiryId: number
+    admissionId: number
     type: number
     staffId: number
     startDate: number
@@ -34416,6 +34453,7 @@ export namespace Prisma {
     id?: true
     refNo?: true
     enquiryId?: true
+    admissionId?: true
     type?: true
     staffId?: true
     startDate?: true
@@ -34434,6 +34472,7 @@ export namespace Prisma {
     id?: true
     refNo?: true
     enquiryId?: true
+    admissionId?: true
     type?: true
     staffId?: true
     startDate?: true
@@ -34452,6 +34491,7 @@ export namespace Prisma {
     id?: true
     refNo?: true
     enquiryId?: true
+    admissionId?: true
     type?: true
     staffId?: true
     startDate?: true
@@ -34557,7 +34597,8 @@ export namespace Prisma {
   export type AllocationGroupByOutputType = {
     id: string
     refNo: string
-    enquiryId: string
+    enquiryId: string | null
+    admissionId: string | null
     type: $Enums.AllocationType
     staffId: string | null
     startDate: Date | null
@@ -34596,6 +34637,7 @@ export namespace Prisma {
     id?: boolean
     refNo?: boolean
     enquiryId?: boolean
+    admissionId?: boolean
     type?: boolean
     staffId?: boolean
     startDate?: boolean
@@ -34610,7 +34652,8 @@ export namespace Prisma {
     createdAt?: boolean
     updatedAt?: boolean
     accounts?: boolean | Allocation$accountsArgs<ExtArgs>
-    enquiry?: boolean | EnquiryDefaultArgs<ExtArgs>
+    enquiry?: boolean | Allocation$enquiryArgs<ExtArgs>
+    admission?: boolean | Allocation$admissionArgs<ExtArgs>
     staff?: boolean | Allocation$staffArgs<ExtArgs>
     MedicalAssignment?: boolean | Allocation$MedicalAssignmentArgs<ExtArgs>
     _count?: boolean | AllocationCountOutputTypeDefaultArgs<ExtArgs>
@@ -34620,6 +34663,7 @@ export namespace Prisma {
     id?: boolean
     refNo?: boolean
     enquiryId?: boolean
+    admissionId?: boolean
     type?: boolean
     staffId?: boolean
     startDate?: boolean
@@ -34633,7 +34677,8 @@ export namespace Prisma {
     deletedAt?: boolean
     createdAt?: boolean
     updatedAt?: boolean
-    enquiry?: boolean | EnquiryDefaultArgs<ExtArgs>
+    enquiry?: boolean | Allocation$enquiryArgs<ExtArgs>
+    admission?: boolean | Allocation$admissionArgs<ExtArgs>
     staff?: boolean | Allocation$staffArgs<ExtArgs>
   }, ExtArgs["result"]["allocation"]>
 
@@ -34641,6 +34686,7 @@ export namespace Prisma {
     id?: boolean
     refNo?: boolean
     enquiryId?: boolean
+    admissionId?: boolean
     type?: boolean
     staffId?: boolean
     startDate?: boolean
@@ -34658,13 +34704,15 @@ export namespace Prisma {
 
   export type AllocationInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     accounts?: boolean | Allocation$accountsArgs<ExtArgs>
-    enquiry?: boolean | EnquiryDefaultArgs<ExtArgs>
+    enquiry?: boolean | Allocation$enquiryArgs<ExtArgs>
+    admission?: boolean | Allocation$admissionArgs<ExtArgs>
     staff?: boolean | Allocation$staffArgs<ExtArgs>
     MedicalAssignment?: boolean | Allocation$MedicalAssignmentArgs<ExtArgs>
     _count?: boolean | AllocationCountOutputTypeDefaultArgs<ExtArgs>
   }
   export type AllocationIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    enquiry?: boolean | EnquiryDefaultArgs<ExtArgs>
+    enquiry?: boolean | Allocation$enquiryArgs<ExtArgs>
+    admission?: boolean | Allocation$admissionArgs<ExtArgs>
     staff?: boolean | Allocation$staffArgs<ExtArgs>
   }
 
@@ -34672,14 +34720,16 @@ export namespace Prisma {
     name: "Allocation"
     objects: {
       accounts: Prisma.$AccountTransactionPayload<ExtArgs>[]
-      enquiry: Prisma.$EnquiryPayload<ExtArgs>
+      enquiry: Prisma.$EnquiryPayload<ExtArgs> | null
+      admission: Prisma.$AdmissionPayload<ExtArgs> | null
       staff: Prisma.$StaffPayload<ExtArgs> | null
       MedicalAssignment: Prisma.$MedicalAssignmentPayload<ExtArgs>[]
     }
     scalars: $Extensions.GetPayloadResult<{
       id: string
       refNo: string
-      enquiryId: string
+      enquiryId: string | null
+      admissionId: string | null
       type: $Enums.AllocationType
       staffId: string | null
       startDate: Date | null
@@ -35058,7 +35108,8 @@ export namespace Prisma {
   export interface Prisma__AllocationClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> extends Prisma.PrismaPromise<T> {
     readonly [Symbol.toStringTag]: "PrismaPromise"
     accounts<T extends Allocation$accountsArgs<ExtArgs> = {}>(args?: Subset<T, Allocation$accountsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$AccountTransactionPayload<ExtArgs>, T, "findMany"> | Null>
-    enquiry<T extends EnquiryDefaultArgs<ExtArgs> = {}>(args?: Subset<T, EnquiryDefaultArgs<ExtArgs>>): Prisma__EnquiryClient<$Result.GetResult<Prisma.$EnquiryPayload<ExtArgs>, T, "findUniqueOrThrow"> | Null, Null, ExtArgs>
+    enquiry<T extends Allocation$enquiryArgs<ExtArgs> = {}>(args?: Subset<T, Allocation$enquiryArgs<ExtArgs>>): Prisma__EnquiryClient<$Result.GetResult<Prisma.$EnquiryPayload<ExtArgs>, T, "findUniqueOrThrow"> | null, null, ExtArgs>
+    admission<T extends Allocation$admissionArgs<ExtArgs> = {}>(args?: Subset<T, Allocation$admissionArgs<ExtArgs>>): Prisma__AdmissionClient<$Result.GetResult<Prisma.$AdmissionPayload<ExtArgs>, T, "findUniqueOrThrow"> | null, null, ExtArgs>
     staff<T extends Allocation$staffArgs<ExtArgs> = {}>(args?: Subset<T, Allocation$staffArgs<ExtArgs>>): Prisma__StaffClient<$Result.GetResult<Prisma.$StaffPayload<ExtArgs>, T, "findUniqueOrThrow"> | null, null, ExtArgs>
     MedicalAssignment<T extends Allocation$MedicalAssignmentArgs<ExtArgs> = {}>(args?: Subset<T, Allocation$MedicalAssignmentArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$MedicalAssignmentPayload<ExtArgs>, T, "findMany"> | Null>
     /**
@@ -35093,6 +35144,7 @@ export namespace Prisma {
     readonly id: FieldRef<"Allocation", 'String'>
     readonly refNo: FieldRef<"Allocation", 'String'>
     readonly enquiryId: FieldRef<"Allocation", 'String'>
+    readonly admissionId: FieldRef<"Allocation", 'String'>
     readonly type: FieldRef<"Allocation", 'AllocationType'>
     readonly staffId: FieldRef<"Allocation", 'String'>
     readonly startDate: FieldRef<"Allocation", 'DateTime'>
@@ -35441,6 +35493,36 @@ export namespace Prisma {
     take?: number
     skip?: number
     distinct?: AccountTransactionScalarFieldEnum | AccountTransactionScalarFieldEnum[]
+  }
+
+  /**
+   * Allocation.enquiry
+   */
+  export type Allocation$enquiryArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Enquiry
+     */
+    select?: EnquirySelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: EnquiryInclude<ExtArgs> | null
+    where?: EnquiryWhereInput
+  }
+
+  /**
+   * Allocation.admission
+   */
+  export type Allocation$admissionArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Admission
+     */
+    select?: AdmissionSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: AdmissionInclude<ExtArgs> | null
+    where?: AdmissionWhereInput
   }
 
   /**
@@ -51095,6 +51177,7 @@ export namespace Prisma {
   export type RoomMinAggregateOutputType = {
     id: string | null
     code: string | null
+    floor: string | null
     type: string | null
     capacity: number | null
     status: boolean | null
@@ -51109,6 +51192,7 @@ export namespace Prisma {
   export type RoomMaxAggregateOutputType = {
     id: string | null
     code: string | null
+    floor: string | null
     type: string | null
     capacity: number | null
     status: boolean | null
@@ -51123,6 +51207,7 @@ export namespace Prisma {
   export type RoomCountAggregateOutputType = {
     id: number
     code: number
+    floor: number
     type: number
     capacity: number
     status: number
@@ -51147,6 +51232,7 @@ export namespace Prisma {
   export type RoomMinAggregateInputType = {
     id?: true
     code?: true
+    floor?: true
     type?: true
     capacity?: true
     status?: true
@@ -51161,6 +51247,7 @@ export namespace Prisma {
   export type RoomMaxAggregateInputType = {
     id?: true
     code?: true
+    floor?: true
     type?: true
     capacity?: true
     status?: true
@@ -51175,6 +51262,7 @@ export namespace Prisma {
   export type RoomCountAggregateInputType = {
     id?: true
     code?: true
+    floor?: true
     type?: true
     capacity?: true
     status?: true
@@ -51276,6 +51364,7 @@ export namespace Prisma {
   export type RoomGroupByOutputType = {
     id: string
     code: string
+    floor: string | null
     type: string
     capacity: number
     status: boolean
@@ -51309,6 +51398,7 @@ export namespace Prisma {
   export type RoomSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
     id?: boolean
     code?: boolean
+    floor?: boolean
     type?: boolean
     capacity?: boolean
     status?: boolean
@@ -51323,6 +51413,7 @@ export namespace Prisma {
   export type RoomSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
     id?: boolean
     code?: boolean
+    floor?: boolean
     type?: boolean
     capacity?: boolean
     status?: boolean
@@ -51337,6 +51428,7 @@ export namespace Prisma {
   export type RoomSelectScalar = {
     id?: boolean
     code?: boolean
+    floor?: boolean
     type?: boolean
     capacity?: boolean
     status?: boolean
@@ -51355,6 +51447,7 @@ export namespace Prisma {
     scalars: $Extensions.GetPayloadResult<{
       id: string
       code: string
+      floor: string | null
       type: string
       capacity: number
       status: boolean
@@ -51759,6 +51852,7 @@ export namespace Prisma {
   interface RoomFieldRefs {
     readonly id: FieldRef<"Room", 'String'>
     readonly code: FieldRef<"Room", 'String'>
+    readonly floor: FieldRef<"Room", 'String'>
     readonly type: FieldRef<"Room", 'String'>
     readonly capacity: FieldRef<"Room", 'Int'>
     readonly status: FieldRef<"Room", 'Boolean'>
@@ -52089,6 +52183,9 @@ export namespace Prisma {
     spO2: number | null
     bloodSugar: string | null
     notes: string | null
+    shift: string | null
+    recordedAt: Date | null
+    department: string | null
     recordedById: string | null
     verified: boolean | null
     verifiedBy: string | null
@@ -52111,6 +52208,9 @@ export namespace Prisma {
     spO2: number | null
     bloodSugar: string | null
     notes: string | null
+    shift: string | null
+    recordedAt: Date | null
+    department: string | null
     recordedById: string | null
     verified: boolean | null
     verifiedBy: string | null
@@ -52133,6 +52233,9 @@ export namespace Prisma {
     spO2: number
     bloodSugar: number
     notes: number
+    shift: number
+    recordedAt: number
+    department: number
     recordedById: number
     verified: number
     verifiedBy: number
@@ -52169,6 +52272,9 @@ export namespace Prisma {
     spO2?: true
     bloodSugar?: true
     notes?: true
+    shift?: true
+    recordedAt?: true
+    department?: true
     recordedById?: true
     verified?: true
     verifiedBy?: true
@@ -52191,6 +52297,9 @@ export namespace Prisma {
     spO2?: true
     bloodSugar?: true
     notes?: true
+    shift?: true
+    recordedAt?: true
+    department?: true
     recordedById?: true
     verified?: true
     verifiedBy?: true
@@ -52213,6 +52322,9 @@ export namespace Prisma {
     spO2?: true
     bloodSugar?: true
     notes?: true
+    shift?: true
+    recordedAt?: true
+    department?: true
     recordedById?: true
     verified?: true
     verifiedBy?: true
@@ -52322,6 +52434,9 @@ export namespace Prisma {
     spO2: number | null
     bloodSugar: string | null
     notes: string | null
+    shift: string | null
+    recordedAt: Date
+    department: string | null
     recordedById: string
     verified: boolean
     verifiedBy: string | null
@@ -52363,6 +52478,9 @@ export namespace Prisma {
     spO2?: boolean
     bloodSugar?: boolean
     notes?: boolean
+    shift?: boolean
+    recordedAt?: boolean
+    department?: boolean
     recordedById?: boolean
     verified?: boolean
     verifiedBy?: boolean
@@ -52387,6 +52505,9 @@ export namespace Prisma {
     spO2?: boolean
     bloodSugar?: boolean
     notes?: boolean
+    shift?: boolean
+    recordedAt?: boolean
+    department?: boolean
     recordedById?: boolean
     verified?: boolean
     verifiedBy?: boolean
@@ -52411,6 +52532,9 @@ export namespace Prisma {
     spO2?: boolean
     bloodSugar?: boolean
     notes?: boolean
+    shift?: boolean
+    recordedAt?: boolean
+    department?: boolean
     recordedById?: boolean
     verified?: boolean
     verifiedBy?: boolean
@@ -52448,6 +52572,9 @@ export namespace Prisma {
       spO2: number | null
       bloodSugar: string | null
       notes: string | null
+      shift: string | null
+      recordedAt: Date
+      department: string | null
       recordedById: string
       verified: boolean
       verifiedBy: string | null
@@ -52862,6 +52989,9 @@ export namespace Prisma {
     readonly spO2: FieldRef<"VitalSign", 'Int'>
     readonly bloodSugar: FieldRef<"VitalSign", 'String'>
     readonly notes: FieldRef<"VitalSign", 'String'>
+    readonly shift: FieldRef<"VitalSign", 'String'>
+    readonly recordedAt: FieldRef<"VitalSign", 'DateTime'>
+    readonly department: FieldRef<"VitalSign", 'String'>
     readonly recordedById: FieldRef<"VitalSign", 'String'>
     readonly verified: FieldRef<"VitalSign", 'Boolean'>
     readonly verifiedBy: FieldRef<"VitalSign", 'String'>
@@ -128437,6 +128567,7 @@ export namespace Prisma {
     id: 'id',
     refNo: 'refNo',
     enquiryId: 'enquiryId',
+    admissionId: 'admissionId',
     type: 'type',
     staffId: 'staffId',
     startDate: 'startDate',
@@ -128753,6 +128884,7 @@ export namespace Prisma {
   export const RoomScalarFieldEnum: {
     id: 'id',
     code: 'code',
+    floor: 'floor',
     type: 'type',
     capacity: 'capacity',
     status: 'status',
@@ -128776,6 +128908,9 @@ export namespace Prisma {
     spO2: 'spO2',
     bloodSugar: 'bloodSugar',
     notes: 'notes',
+    shift: 'shift',
+    recordedAt: 'recordedAt',
+    department: 'department',
     recordedById: 'recordedById',
     verified: 'verified',
     verifiedBy: 'verifiedBy',
@@ -132592,7 +132727,7 @@ export namespace Prisma {
     OR?: AdmissionWhereInput[]
     NOT?: AdmissionWhereInput | AdmissionWhereInput[]
     id?: StringFilter<"Admission"> | string
-    enquiryId?: StringFilter<"Admission"> | string
+    enquiryId?: StringNullableFilter<"Admission"> | string | null
     patientId?: StringFilter<"Admission"> | string
     tenantId?: StringFilter<"Admission"> | string
     unitId?: StringFilter<"Admission"> | string
@@ -132607,16 +132742,17 @@ export namespace Prisma {
     dischargedAt?: DateTimeNullableFilter<"Admission"> | Date | string | null
     createdAt?: DateTimeFilter<"Admission"> | Date | string
     updatedAt?: DateTimeFilter<"Admission"> | Date | string
-    enquiry?: XOR<EnquiryRelationFilter, EnquiryWhereInput>
+    enquiry?: XOR<EnquiryNullableRelationFilter, EnquiryWhereInput> | null
     patient?: XOR<PatientRelationFilter, PatientWhereInput>
     MedicalAssignment?: MedicalAssignmentListRelationFilter
     serviceContract?: XOR<ServiceContractNullableRelationFilter, ServiceContractWhereInput> | null
     serviceClosure?: XOR<ServiceClosureNullableRelationFilter, ServiceClosureWhereInput> | null
+    allocation?: XOR<AllocationNullableRelationFilter, AllocationWhereInput> | null
   }
 
   export type AdmissionOrderByWithRelationInput = {
     id?: SortOrder
-    enquiryId?: SortOrder
+    enquiryId?: SortOrderInput | SortOrder
     patientId?: SortOrder
     tenantId?: SortOrder
     unitId?: SortOrder
@@ -132636,6 +132772,7 @@ export namespace Prisma {
     MedicalAssignment?: MedicalAssignmentOrderByRelationAggregateInput
     serviceContract?: ServiceContractOrderByWithRelationInput
     serviceClosure?: ServiceClosureOrderByWithRelationInput
+    allocation?: AllocationOrderByWithRelationInput
   }
 
   export type AdmissionWhereUniqueInput = Prisma.AtLeast<{
@@ -132658,16 +132795,17 @@ export namespace Prisma {
     dischargedAt?: DateTimeNullableFilter<"Admission"> | Date | string | null
     createdAt?: DateTimeFilter<"Admission"> | Date | string
     updatedAt?: DateTimeFilter<"Admission"> | Date | string
-    enquiry?: XOR<EnquiryRelationFilter, EnquiryWhereInput>
+    enquiry?: XOR<EnquiryNullableRelationFilter, EnquiryWhereInput> | null
     patient?: XOR<PatientRelationFilter, PatientWhereInput>
     MedicalAssignment?: MedicalAssignmentListRelationFilter
     serviceContract?: XOR<ServiceContractNullableRelationFilter, ServiceContractWhereInput> | null
     serviceClosure?: XOR<ServiceClosureNullableRelationFilter, ServiceClosureWhereInput> | null
+    allocation?: XOR<AllocationNullableRelationFilter, AllocationWhereInput> | null
   }, "id" | "enquiryId">
 
   export type AdmissionOrderByWithAggregationInput = {
     id?: SortOrder
-    enquiryId?: SortOrder
+    enquiryId?: SortOrderInput | SortOrder
     patientId?: SortOrder
     tenantId?: SortOrder
     unitId?: SortOrder
@@ -132692,7 +132830,7 @@ export namespace Prisma {
     OR?: AdmissionScalarWhereWithAggregatesInput[]
     NOT?: AdmissionScalarWhereWithAggregatesInput | AdmissionScalarWhereWithAggregatesInput[]
     id?: StringWithAggregatesFilter<"Admission"> | string
-    enquiryId?: StringWithAggregatesFilter<"Admission"> | string
+    enquiryId?: StringNullableWithAggregatesFilter<"Admission"> | string | null
     patientId?: StringWithAggregatesFilter<"Admission"> | string
     tenantId?: StringWithAggregatesFilter<"Admission"> | string
     unitId?: StringWithAggregatesFilter<"Admission"> | string
@@ -132872,7 +133010,8 @@ export namespace Prisma {
     NOT?: AllocationWhereInput | AllocationWhereInput[]
     id?: StringFilter<"Allocation"> | string
     refNo?: StringFilter<"Allocation"> | string
-    enquiryId?: StringFilter<"Allocation"> | string
+    enquiryId?: StringNullableFilter<"Allocation"> | string | null
+    admissionId?: StringNullableFilter<"Allocation"> | string | null
     type?: EnumAllocationTypeFilter<"Allocation"> | $Enums.AllocationType
     staffId?: StringNullableFilter<"Allocation"> | string | null
     startDate?: DateTimeNullableFilter<"Allocation"> | Date | string | null
@@ -132887,7 +133026,8 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"Allocation"> | Date | string
     updatedAt?: DateTimeFilter<"Allocation"> | Date | string
     accounts?: AccountTransactionListRelationFilter
-    enquiry?: XOR<EnquiryRelationFilter, EnquiryWhereInput>
+    enquiry?: XOR<EnquiryNullableRelationFilter, EnquiryWhereInput> | null
+    admission?: XOR<AdmissionNullableRelationFilter, AdmissionWhereInput> | null
     staff?: XOR<StaffNullableRelationFilter, StaffWhereInput> | null
     MedicalAssignment?: MedicalAssignmentListRelationFilter
   }
@@ -132895,7 +133035,8 @@ export namespace Prisma {
   export type AllocationOrderByWithRelationInput = {
     id?: SortOrder
     refNo?: SortOrder
-    enquiryId?: SortOrder
+    enquiryId?: SortOrderInput | SortOrder
+    admissionId?: SortOrderInput | SortOrder
     type?: SortOrder
     staffId?: SortOrderInput | SortOrder
     startDate?: SortOrderInput | SortOrder
@@ -132911,6 +133052,7 @@ export namespace Prisma {
     updatedAt?: SortOrder
     accounts?: AccountTransactionOrderByRelationAggregateInput
     enquiry?: EnquiryOrderByWithRelationInput
+    admission?: AdmissionOrderByWithRelationInput
     staff?: StaffOrderByWithRelationInput
     MedicalAssignment?: MedicalAssignmentOrderByRelationAggregateInput
   }
@@ -132919,6 +133061,7 @@ export namespace Prisma {
     id?: string
     refNo?: string
     enquiryId?: string
+    admissionId?: string
     AND?: AllocationWhereInput | AllocationWhereInput[]
     OR?: AllocationWhereInput[]
     NOT?: AllocationWhereInput | AllocationWhereInput[]
@@ -132936,15 +133079,17 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"Allocation"> | Date | string
     updatedAt?: DateTimeFilter<"Allocation"> | Date | string
     accounts?: AccountTransactionListRelationFilter
-    enquiry?: XOR<EnquiryRelationFilter, EnquiryWhereInput>
+    enquiry?: XOR<EnquiryNullableRelationFilter, EnquiryWhereInput> | null
+    admission?: XOR<AdmissionNullableRelationFilter, AdmissionWhereInput> | null
     staff?: XOR<StaffNullableRelationFilter, StaffWhereInput> | null
     MedicalAssignment?: MedicalAssignmentListRelationFilter
-  }, "id" | "refNo" | "enquiryId">
+  }, "id" | "refNo" | "enquiryId" | "admissionId">
 
   export type AllocationOrderByWithAggregationInput = {
     id?: SortOrder
     refNo?: SortOrder
-    enquiryId?: SortOrder
+    enquiryId?: SortOrderInput | SortOrder
+    admissionId?: SortOrderInput | SortOrder
     type?: SortOrder
     staffId?: SortOrderInput | SortOrder
     startDate?: SortOrderInput | SortOrder
@@ -132971,7 +133116,8 @@ export namespace Prisma {
     NOT?: AllocationScalarWhereWithAggregatesInput | AllocationScalarWhereWithAggregatesInput[]
     id?: StringWithAggregatesFilter<"Allocation"> | string
     refNo?: StringWithAggregatesFilter<"Allocation"> | string
-    enquiryId?: StringWithAggregatesFilter<"Allocation"> | string
+    enquiryId?: StringNullableWithAggregatesFilter<"Allocation"> | string | null
+    admissionId?: StringNullableWithAggregatesFilter<"Allocation"> | string | null
     type?: EnumAllocationTypeWithAggregatesFilter<"Allocation"> | $Enums.AllocationType
     staffId?: StringNullableWithAggregatesFilter<"Allocation"> | string | null
     startDate?: DateTimeNullableWithAggregatesFilter<"Allocation"> | Date | string | null
@@ -134476,6 +134622,7 @@ export namespace Prisma {
     NOT?: RoomWhereInput | RoomWhereInput[]
     id?: StringFilter<"Room"> | string
     code?: StringFilter<"Room"> | string
+    floor?: StringNullableFilter<"Room"> | string | null
     type?: StringFilter<"Room"> | string
     capacity?: IntFilter<"Room"> | number
     status?: BoolFilter<"Room"> | boolean
@@ -134490,6 +134637,7 @@ export namespace Prisma {
   export type RoomOrderByWithRelationInput = {
     id?: SortOrder
     code?: SortOrder
+    floor?: SortOrderInput | SortOrder
     type?: SortOrder
     capacity?: SortOrder
     status?: SortOrder
@@ -134507,6 +134655,7 @@ export namespace Prisma {
     AND?: RoomWhereInput | RoomWhereInput[]
     OR?: RoomWhereInput[]
     NOT?: RoomWhereInput | RoomWhereInput[]
+    floor?: StringNullableFilter<"Room"> | string | null
     type?: StringFilter<"Room"> | string
     capacity?: IntFilter<"Room"> | number
     status?: BoolFilter<"Room"> | boolean
@@ -134521,6 +134670,7 @@ export namespace Prisma {
   export type RoomOrderByWithAggregationInput = {
     id?: SortOrder
     code?: SortOrder
+    floor?: SortOrderInput | SortOrder
     type?: SortOrder
     capacity?: SortOrder
     status?: SortOrder
@@ -134543,6 +134693,7 @@ export namespace Prisma {
     NOT?: RoomScalarWhereWithAggregatesInput | RoomScalarWhereWithAggregatesInput[]
     id?: StringWithAggregatesFilter<"Room"> | string
     code?: StringWithAggregatesFilter<"Room"> | string
+    floor?: StringNullableWithAggregatesFilter<"Room"> | string | null
     type?: StringWithAggregatesFilter<"Room"> | string
     capacity?: IntWithAggregatesFilter<"Room"> | number
     status?: BoolWithAggregatesFilter<"Room"> | boolean
@@ -134566,6 +134717,9 @@ export namespace Prisma {
     spO2?: IntNullableFilter<"VitalSign"> | number | null
     bloodSugar?: StringNullableFilter<"VitalSign"> | string | null
     notes?: StringNullableFilter<"VitalSign"> | string | null
+    shift?: StringNullableFilter<"VitalSign"> | string | null
+    recordedAt?: DateTimeFilter<"VitalSign"> | Date | string
+    department?: StringNullableFilter<"VitalSign"> | string | null
     recordedById?: StringFilter<"VitalSign"> | string
     verified?: BoolFilter<"VitalSign"> | boolean
     verifiedBy?: StringNullableFilter<"VitalSign"> | string | null
@@ -134590,6 +134744,9 @@ export namespace Prisma {
     spO2?: SortOrderInput | SortOrder
     bloodSugar?: SortOrderInput | SortOrder
     notes?: SortOrderInput | SortOrder
+    shift?: SortOrderInput | SortOrder
+    recordedAt?: SortOrder
+    department?: SortOrderInput | SortOrder
     recordedById?: SortOrder
     verified?: SortOrder
     verifiedBy?: SortOrderInput | SortOrder
@@ -134617,6 +134774,9 @@ export namespace Prisma {
     spO2?: IntNullableFilter<"VitalSign"> | number | null
     bloodSugar?: StringNullableFilter<"VitalSign"> | string | null
     notes?: StringNullableFilter<"VitalSign"> | string | null
+    shift?: StringNullableFilter<"VitalSign"> | string | null
+    recordedAt?: DateTimeFilter<"VitalSign"> | Date | string
+    department?: StringNullableFilter<"VitalSign"> | string | null
     recordedById?: StringFilter<"VitalSign"> | string
     verified?: BoolFilter<"VitalSign"> | boolean
     verifiedBy?: StringNullableFilter<"VitalSign"> | string | null
@@ -134641,6 +134801,9 @@ export namespace Prisma {
     spO2?: SortOrderInput | SortOrder
     bloodSugar?: SortOrderInput | SortOrder
     notes?: SortOrderInput | SortOrder
+    shift?: SortOrderInput | SortOrder
+    recordedAt?: SortOrder
+    department?: SortOrderInput | SortOrder
     recordedById?: SortOrder
     verified?: SortOrder
     verifiedBy?: SortOrderInput | SortOrder
@@ -134671,6 +134834,9 @@ export namespace Prisma {
     spO2?: IntNullableWithAggregatesFilter<"VitalSign"> | number | null
     bloodSugar?: StringNullableWithAggregatesFilter<"VitalSign"> | string | null
     notes?: StringNullableWithAggregatesFilter<"VitalSign"> | string | null
+    shift?: StringNullableWithAggregatesFilter<"VitalSign"> | string | null
+    recordedAt?: DateTimeWithAggregatesFilter<"VitalSign"> | Date | string
+    department?: StringNullableWithAggregatesFilter<"VitalSign"> | string | null
     recordedById?: StringWithAggregatesFilter<"VitalSign"> | string
     verified?: BoolWithAggregatesFilter<"VitalSign"> | boolean
     verifiedBy?: StringNullableWithAggregatesFilter<"VitalSign"> | string | null
@@ -144473,16 +144639,17 @@ export namespace Prisma {
     dischargedAt?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
-    enquiry: EnquiryCreateNestedOneWithoutAdmissionInput
+    enquiry?: EnquiryCreateNestedOneWithoutAdmissionInput
     patient: PatientCreateNestedOneWithoutAdmissionsInput
     MedicalAssignment?: MedicalAssignmentCreateNestedManyWithoutAdmissionInput
     serviceContract?: ServiceContractCreateNestedOneWithoutAdmissionInput
     serviceClosure?: ServiceClosureCreateNestedOneWithoutAdmissionInput
+    allocation?: AllocationCreateNestedOneWithoutAdmissionInput
   }
 
   export type AdmissionUncheckedCreateInput = {
     id?: string
-    enquiryId: string
+    enquiryId?: string | null
     patientId: string
     tenantId: string
     unitId: string
@@ -144500,6 +144667,7 @@ export namespace Prisma {
     MedicalAssignment?: MedicalAssignmentUncheckedCreateNestedManyWithoutAdmissionInput
     serviceContract?: ServiceContractUncheckedCreateNestedOneWithoutAdmissionInput
     serviceClosure?: ServiceClosureUncheckedCreateNestedOneWithoutAdmissionInput
+    allocation?: AllocationUncheckedCreateNestedOneWithoutAdmissionInput
   }
 
   export type AdmissionUpdateInput = {
@@ -144517,16 +144685,17 @@ export namespace Prisma {
     dischargedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    enquiry?: EnquiryUpdateOneRequiredWithoutAdmissionNestedInput
+    enquiry?: EnquiryUpdateOneWithoutAdmissionNestedInput
     patient?: PatientUpdateOneRequiredWithoutAdmissionsNestedInput
     MedicalAssignment?: MedicalAssignmentUpdateManyWithoutAdmissionNestedInput
     serviceContract?: ServiceContractUpdateOneWithoutAdmissionNestedInput
     serviceClosure?: ServiceClosureUpdateOneWithoutAdmissionNestedInput
+    allocation?: AllocationUpdateOneWithoutAdmissionNestedInput
   }
 
   export type AdmissionUncheckedUpdateInput = {
     id?: StringFieldUpdateOperationsInput | string
-    enquiryId?: StringFieldUpdateOperationsInput | string
+    enquiryId?: NullableStringFieldUpdateOperationsInput | string | null
     patientId?: StringFieldUpdateOperationsInput | string
     tenantId?: StringFieldUpdateOperationsInput | string
     unitId?: StringFieldUpdateOperationsInput | string
@@ -144544,11 +144713,12 @@ export namespace Prisma {
     MedicalAssignment?: MedicalAssignmentUncheckedUpdateManyWithoutAdmissionNestedInput
     serviceContract?: ServiceContractUncheckedUpdateOneWithoutAdmissionNestedInput
     serviceClosure?: ServiceClosureUncheckedUpdateOneWithoutAdmissionNestedInput
+    allocation?: AllocationUncheckedUpdateOneWithoutAdmissionNestedInput
   }
 
   export type AdmissionCreateManyInput = {
     id?: string
-    enquiryId: string
+    enquiryId?: string | null
     patientId: string
     tenantId: string
     unitId: string
@@ -144584,7 +144754,7 @@ export namespace Prisma {
 
   export type AdmissionUncheckedUpdateManyInput = {
     id?: StringFieldUpdateOperationsInput | string
-    enquiryId?: StringFieldUpdateOperationsInput | string
+    enquiryId?: NullableStringFieldUpdateOperationsInput | string | null
     patientId?: StringFieldUpdateOperationsInput | string
     tenantId?: StringFieldUpdateOperationsInput | string
     unitId?: StringFieldUpdateOperationsInput | string
@@ -144812,7 +144982,8 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     accounts?: AccountTransactionCreateNestedManyWithoutAllocationInput
-    enquiry: EnquiryCreateNestedOneWithoutAllocationInput
+    enquiry?: EnquiryCreateNestedOneWithoutAllocationInput
+    admission?: AdmissionCreateNestedOneWithoutAllocationInput
     staff?: StaffCreateNestedOneWithoutAllocationsInput
     MedicalAssignment?: MedicalAssignmentCreateNestedManyWithoutAllocationInput
   }
@@ -144820,7 +144991,8 @@ export namespace Prisma {
   export type AllocationUncheckedCreateInput = {
     id?: string
     refNo: string
-    enquiryId: string
+    enquiryId?: string | null
+    admissionId?: string | null
     type?: $Enums.AllocationType
     staffId?: string | null
     startDate?: Date | string | null
@@ -144854,7 +145026,8 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     accounts?: AccountTransactionUpdateManyWithoutAllocationNestedInput
-    enquiry?: EnquiryUpdateOneRequiredWithoutAllocationNestedInput
+    enquiry?: EnquiryUpdateOneWithoutAllocationNestedInput
+    admission?: AdmissionUpdateOneWithoutAllocationNestedInput
     staff?: StaffUpdateOneWithoutAllocationsNestedInput
     MedicalAssignment?: MedicalAssignmentUpdateManyWithoutAllocationNestedInput
   }
@@ -144862,7 +145035,8 @@ export namespace Prisma {
   export type AllocationUncheckedUpdateInput = {
     id?: StringFieldUpdateOperationsInput | string
     refNo?: StringFieldUpdateOperationsInput | string
-    enquiryId?: StringFieldUpdateOperationsInput | string
+    enquiryId?: NullableStringFieldUpdateOperationsInput | string | null
+    admissionId?: NullableStringFieldUpdateOperationsInput | string | null
     type?: EnumAllocationTypeFieldUpdateOperationsInput | $Enums.AllocationType
     staffId?: NullableStringFieldUpdateOperationsInput | string | null
     startDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -144883,7 +145057,8 @@ export namespace Prisma {
   export type AllocationCreateManyInput = {
     id?: string
     refNo: string
-    enquiryId: string
+    enquiryId?: string | null
+    admissionId?: string | null
     type?: $Enums.AllocationType
     staffId?: string | null
     startDate?: Date | string | null
@@ -144919,7 +145094,8 @@ export namespace Prisma {
   export type AllocationUncheckedUpdateManyInput = {
     id?: StringFieldUpdateOperationsInput | string
     refNo?: StringFieldUpdateOperationsInput | string
-    enquiryId?: StringFieldUpdateOperationsInput | string
+    enquiryId?: NullableStringFieldUpdateOperationsInput | string | null
+    admissionId?: NullableStringFieldUpdateOperationsInput | string | null
     type?: EnumAllocationTypeFieldUpdateOperationsInput | $Enums.AllocationType
     staffId?: NullableStringFieldUpdateOperationsInput | string | null
     startDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -146691,6 +146867,7 @@ export namespace Prisma {
   export type RoomCreateInput = {
     id?: string
     code: string
+    floor?: string | null
     type: string
     capacity?: number
     status?: boolean
@@ -146705,6 +146882,7 @@ export namespace Prisma {
   export type RoomUncheckedCreateInput = {
     id?: string
     code: string
+    floor?: string | null
     type: string
     capacity?: number
     status?: boolean
@@ -146719,6 +146897,7 @@ export namespace Prisma {
   export type RoomUpdateInput = {
     id?: StringFieldUpdateOperationsInput | string
     code?: StringFieldUpdateOperationsInput | string
+    floor?: NullableStringFieldUpdateOperationsInput | string | null
     type?: StringFieldUpdateOperationsInput | string
     capacity?: IntFieldUpdateOperationsInput | number
     status?: BoolFieldUpdateOperationsInput | boolean
@@ -146733,6 +146912,7 @@ export namespace Prisma {
   export type RoomUncheckedUpdateInput = {
     id?: StringFieldUpdateOperationsInput | string
     code?: StringFieldUpdateOperationsInput | string
+    floor?: NullableStringFieldUpdateOperationsInput | string | null
     type?: StringFieldUpdateOperationsInput | string
     capacity?: IntFieldUpdateOperationsInput | number
     status?: BoolFieldUpdateOperationsInput | boolean
@@ -146747,6 +146927,7 @@ export namespace Prisma {
   export type RoomCreateManyInput = {
     id?: string
     code: string
+    floor?: string | null
     type: string
     capacity?: number
     status?: boolean
@@ -146761,6 +146942,7 @@ export namespace Prisma {
   export type RoomUpdateManyMutationInput = {
     id?: StringFieldUpdateOperationsInput | string
     code?: StringFieldUpdateOperationsInput | string
+    floor?: NullableStringFieldUpdateOperationsInput | string | null
     type?: StringFieldUpdateOperationsInput | string
     capacity?: IntFieldUpdateOperationsInput | number
     status?: BoolFieldUpdateOperationsInput | boolean
@@ -146775,6 +146957,7 @@ export namespace Prisma {
   export type RoomUncheckedUpdateManyInput = {
     id?: StringFieldUpdateOperationsInput | string
     code?: StringFieldUpdateOperationsInput | string
+    floor?: NullableStringFieldUpdateOperationsInput | string | null
     type?: StringFieldUpdateOperationsInput | string
     capacity?: IntFieldUpdateOperationsInput | number
     status?: BoolFieldUpdateOperationsInput | boolean
@@ -146794,6 +146977,9 @@ export namespace Prisma {
     spO2?: number | null
     bloodSugar?: string | null
     notes?: string | null
+    shift?: string | null
+    recordedAt?: Date | string
+    department?: string | null
     recordedById: string
     verified?: boolean
     verifiedBy?: string | null
@@ -146817,6 +147003,9 @@ export namespace Prisma {
     spO2?: number | null
     bloodSugar?: string | null
     notes?: string | null
+    shift?: string | null
+    recordedAt?: Date | string
+    department?: string | null
     recordedById: string
     verified?: boolean
     verifiedBy?: string | null
@@ -146838,6 +147027,9 @@ export namespace Prisma {
     spO2?: NullableIntFieldUpdateOperationsInput | number | null
     bloodSugar?: NullableStringFieldUpdateOperationsInput | string | null
     notes?: NullableStringFieldUpdateOperationsInput | string | null
+    shift?: NullableStringFieldUpdateOperationsInput | string | null
+    recordedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    department?: NullableStringFieldUpdateOperationsInput | string | null
     recordedById?: StringFieldUpdateOperationsInput | string
     verified?: BoolFieldUpdateOperationsInput | boolean
     verifiedBy?: NullableStringFieldUpdateOperationsInput | string | null
@@ -146861,6 +147053,9 @@ export namespace Prisma {
     spO2?: NullableIntFieldUpdateOperationsInput | number | null
     bloodSugar?: NullableStringFieldUpdateOperationsInput | string | null
     notes?: NullableStringFieldUpdateOperationsInput | string | null
+    shift?: NullableStringFieldUpdateOperationsInput | string | null
+    recordedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    department?: NullableStringFieldUpdateOperationsInput | string | null
     recordedById?: StringFieldUpdateOperationsInput | string
     verified?: BoolFieldUpdateOperationsInput | boolean
     verifiedBy?: NullableStringFieldUpdateOperationsInput | string | null
@@ -146883,6 +147078,9 @@ export namespace Prisma {
     spO2?: number | null
     bloodSugar?: string | null
     notes?: string | null
+    shift?: string | null
+    recordedAt?: Date | string
+    department?: string | null
     recordedById: string
     verified?: boolean
     verifiedBy?: string | null
@@ -146904,6 +147102,9 @@ export namespace Prisma {
     spO2?: NullableIntFieldUpdateOperationsInput | number | null
     bloodSugar?: NullableStringFieldUpdateOperationsInput | string | null
     notes?: NullableStringFieldUpdateOperationsInput | string | null
+    shift?: NullableStringFieldUpdateOperationsInput | string | null
+    recordedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    department?: NullableStringFieldUpdateOperationsInput | string | null
     recordedById?: StringFieldUpdateOperationsInput | string
     verified?: BoolFieldUpdateOperationsInput | boolean
     verifiedBy?: NullableStringFieldUpdateOperationsInput | string | null
@@ -146925,6 +147126,9 @@ export namespace Prisma {
     spO2?: NullableIntFieldUpdateOperationsInput | number | null
     bloodSugar?: NullableStringFieldUpdateOperationsInput | string | null
     notes?: NullableStringFieldUpdateOperationsInput | string | null
+    shift?: NullableStringFieldUpdateOperationsInput | string | null
+    recordedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    department?: NullableStringFieldUpdateOperationsInput | string | null
     recordedById?: StringFieldUpdateOperationsInput | string
     verified?: BoolFieldUpdateOperationsInput | boolean
     verifiedBy?: NullableStringFieldUpdateOperationsInput | string | null
@@ -157419,9 +157623,9 @@ export namespace Prisma {
     _max?: NestedBoolNullableFilter<$PrismaModel>
   }
 
-  export type EnquiryRelationFilter = {
-    is?: EnquiryWhereInput
-    isNot?: EnquiryWhereInput
+  export type EnquiryNullableRelationFilter = {
+    is?: EnquiryWhereInput | null
+    isNot?: EnquiryWhereInput | null
   }
 
   export type PatientRelationFilter = {
@@ -157494,6 +157698,11 @@ export namespace Prisma {
     dischargedAt?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+  }
+
+  export type EnquiryRelationFilter = {
+    is?: EnquiryWhereInput
+    isNot?: EnquiryWhereInput
   }
 
   export type FollowUpCountOrderByAggregateInput = {
@@ -157618,6 +157827,7 @@ export namespace Prisma {
     id?: SortOrder
     refNo?: SortOrder
     enquiryId?: SortOrder
+    admissionId?: SortOrder
     type?: SortOrder
     staffId?: SortOrder
     startDate?: SortOrder
@@ -157641,6 +157851,7 @@ export namespace Prisma {
     id?: SortOrder
     refNo?: SortOrder
     enquiryId?: SortOrder
+    admissionId?: SortOrder
     type?: SortOrder
     staffId?: SortOrder
     startDate?: SortOrder
@@ -157659,6 +157870,7 @@ export namespace Prisma {
     id?: SortOrder
     refNo?: SortOrder
     enquiryId?: SortOrder
+    admissionId?: SortOrder
     type?: SortOrder
     staffId?: SortOrder
     startDate?: SortOrder
@@ -157813,11 +158025,6 @@ export namespace Prisma {
     in?: $Enums.TaskStatus[] | ListEnumTaskStatusFieldRefInput<$PrismaModel>
     notIn?: $Enums.TaskStatus[] | ListEnumTaskStatusFieldRefInput<$PrismaModel>
     not?: NestedEnumTaskStatusFilter<$PrismaModel> | $Enums.TaskStatus
-  }
-
-  export type EnquiryNullableRelationFilter = {
-    is?: EnquiryWhereInput | null
-    isNot?: EnquiryWhereInput | null
   }
 
   export type TaskCountOrderByAggregateInput = {
@@ -158642,6 +158849,7 @@ export namespace Prisma {
   export type RoomCountOrderByAggregateInput = {
     id?: SortOrder
     code?: SortOrder
+    floor?: SortOrder
     type?: SortOrder
     capacity?: SortOrder
     status?: SortOrder
@@ -158660,6 +158868,7 @@ export namespace Prisma {
   export type RoomMaxOrderByAggregateInput = {
     id?: SortOrder
     code?: SortOrder
+    floor?: SortOrder
     type?: SortOrder
     capacity?: SortOrder
     status?: SortOrder
@@ -158674,6 +158883,7 @@ export namespace Prisma {
   export type RoomMinOrderByAggregateInput = {
     id?: SortOrder
     code?: SortOrder
+    floor?: SortOrder
     type?: SortOrder
     capacity?: SortOrder
     status?: SortOrder
@@ -158703,6 +158913,9 @@ export namespace Prisma {
     spO2?: SortOrder
     bloodSugar?: SortOrder
     notes?: SortOrder
+    shift?: SortOrder
+    recordedAt?: SortOrder
+    department?: SortOrder
     recordedById?: SortOrder
     verified?: SortOrder
     verifiedBy?: SortOrder
@@ -158731,6 +158944,9 @@ export namespace Prisma {
     spO2?: SortOrder
     bloodSugar?: SortOrder
     notes?: SortOrder
+    shift?: SortOrder
+    recordedAt?: SortOrder
+    department?: SortOrder
     recordedById?: SortOrder
     verified?: SortOrder
     verifiedBy?: SortOrder
@@ -158753,6 +158969,9 @@ export namespace Prisma {
     spO2?: SortOrder
     bloodSugar?: SortOrder
     notes?: SortOrder
+    shift?: SortOrder
+    recordedAt?: SortOrder
+    department?: SortOrder
     recordedById?: SortOrder
     verified?: SortOrder
     verifiedBy?: SortOrder
@@ -165961,6 +166180,12 @@ export namespace Prisma {
     connect?: ServiceClosureWhereUniqueInput
   }
 
+  export type AllocationCreateNestedOneWithoutAdmissionInput = {
+    create?: XOR<AllocationCreateWithoutAdmissionInput, AllocationUncheckedCreateWithoutAdmissionInput>
+    connectOrCreate?: AllocationCreateOrConnectWithoutAdmissionInput
+    connect?: AllocationWhereUniqueInput
+  }
+
   export type MedicalAssignmentUncheckedCreateNestedManyWithoutAdmissionInput = {
     create?: XOR<MedicalAssignmentCreateWithoutAdmissionInput, MedicalAssignmentUncheckedCreateWithoutAdmissionInput> | MedicalAssignmentCreateWithoutAdmissionInput[] | MedicalAssignmentUncheckedCreateWithoutAdmissionInput[]
     connectOrCreate?: MedicalAssignmentCreateOrConnectWithoutAdmissionInput | MedicalAssignmentCreateOrConnectWithoutAdmissionInput[]
@@ -165980,10 +166205,18 @@ export namespace Prisma {
     connect?: ServiceClosureWhereUniqueInput
   }
 
-  export type EnquiryUpdateOneRequiredWithoutAdmissionNestedInput = {
+  export type AllocationUncheckedCreateNestedOneWithoutAdmissionInput = {
+    create?: XOR<AllocationCreateWithoutAdmissionInput, AllocationUncheckedCreateWithoutAdmissionInput>
+    connectOrCreate?: AllocationCreateOrConnectWithoutAdmissionInput
+    connect?: AllocationWhereUniqueInput
+  }
+
+  export type EnquiryUpdateOneWithoutAdmissionNestedInput = {
     create?: XOR<EnquiryCreateWithoutAdmissionInput, EnquiryUncheckedCreateWithoutAdmissionInput>
     connectOrCreate?: EnquiryCreateOrConnectWithoutAdmissionInput
     upsert?: EnquiryUpsertWithoutAdmissionInput
+    disconnect?: EnquiryWhereInput | boolean
+    delete?: EnquiryWhereInput | boolean
     connect?: EnquiryWhereUniqueInput
     update?: XOR<XOR<EnquiryUpdateToOneWithWhereWithoutAdmissionInput, EnquiryUpdateWithoutAdmissionInput>, EnquiryUncheckedUpdateWithoutAdmissionInput>
   }
@@ -166030,6 +166263,16 @@ export namespace Prisma {
     update?: XOR<XOR<ServiceClosureUpdateToOneWithWhereWithoutAdmissionInput, ServiceClosureUpdateWithoutAdmissionInput>, ServiceClosureUncheckedUpdateWithoutAdmissionInput>
   }
 
+  export type AllocationUpdateOneWithoutAdmissionNestedInput = {
+    create?: XOR<AllocationCreateWithoutAdmissionInput, AllocationUncheckedCreateWithoutAdmissionInput>
+    connectOrCreate?: AllocationCreateOrConnectWithoutAdmissionInput
+    upsert?: AllocationUpsertWithoutAdmissionInput
+    disconnect?: AllocationWhereInput | boolean
+    delete?: AllocationWhereInput | boolean
+    connect?: AllocationWhereUniqueInput
+    update?: XOR<XOR<AllocationUpdateToOneWithWhereWithoutAdmissionInput, AllocationUpdateWithoutAdmissionInput>, AllocationUncheckedUpdateWithoutAdmissionInput>
+  }
+
   export type MedicalAssignmentUncheckedUpdateManyWithoutAdmissionNestedInput = {
     create?: XOR<MedicalAssignmentCreateWithoutAdmissionInput, MedicalAssignmentUncheckedCreateWithoutAdmissionInput> | MedicalAssignmentCreateWithoutAdmissionInput[] | MedicalAssignmentUncheckedCreateWithoutAdmissionInput[]
     connectOrCreate?: MedicalAssignmentCreateOrConnectWithoutAdmissionInput | MedicalAssignmentCreateOrConnectWithoutAdmissionInput[]
@@ -166064,6 +166307,16 @@ export namespace Prisma {
     update?: XOR<XOR<ServiceClosureUpdateToOneWithWhereWithoutAdmissionInput, ServiceClosureUpdateWithoutAdmissionInput>, ServiceClosureUncheckedUpdateWithoutAdmissionInput>
   }
 
+  export type AllocationUncheckedUpdateOneWithoutAdmissionNestedInput = {
+    create?: XOR<AllocationCreateWithoutAdmissionInput, AllocationUncheckedCreateWithoutAdmissionInput>
+    connectOrCreate?: AllocationCreateOrConnectWithoutAdmissionInput
+    upsert?: AllocationUpsertWithoutAdmissionInput
+    disconnect?: AllocationWhereInput | boolean
+    delete?: AllocationWhereInput | boolean
+    connect?: AllocationWhereUniqueInput
+    update?: XOR<XOR<AllocationUpdateToOneWithWhereWithoutAdmissionInput, AllocationUpdateWithoutAdmissionInput>, AllocationUncheckedUpdateWithoutAdmissionInput>
+  }
+
   export type EnquiryCreateNestedOneWithoutFollowUpsInput = {
     create?: XOR<EnquiryCreateWithoutFollowUpsInput, EnquiryUncheckedCreateWithoutFollowUpsInput>
     connectOrCreate?: EnquiryCreateOrConnectWithoutFollowUpsInput
@@ -166089,6 +166342,12 @@ export namespace Prisma {
     create?: XOR<EnquiryCreateWithoutAllocationInput, EnquiryUncheckedCreateWithoutAllocationInput>
     connectOrCreate?: EnquiryCreateOrConnectWithoutAllocationInput
     connect?: EnquiryWhereUniqueInput
+  }
+
+  export type AdmissionCreateNestedOneWithoutAllocationInput = {
+    create?: XOR<AdmissionCreateWithoutAllocationInput, AdmissionUncheckedCreateWithoutAllocationInput>
+    connectOrCreate?: AdmissionCreateOrConnectWithoutAllocationInput
+    connect?: AdmissionWhereUniqueInput
   }
 
   export type StaffCreateNestedOneWithoutAllocationsInput = {
@@ -166140,12 +166399,24 @@ export namespace Prisma {
     deleteMany?: AccountTransactionScalarWhereInput | AccountTransactionScalarWhereInput[]
   }
 
-  export type EnquiryUpdateOneRequiredWithoutAllocationNestedInput = {
+  export type EnquiryUpdateOneWithoutAllocationNestedInput = {
     create?: XOR<EnquiryCreateWithoutAllocationInput, EnquiryUncheckedCreateWithoutAllocationInput>
     connectOrCreate?: EnquiryCreateOrConnectWithoutAllocationInput
     upsert?: EnquiryUpsertWithoutAllocationInput
+    disconnect?: EnquiryWhereInput | boolean
+    delete?: EnquiryWhereInput | boolean
     connect?: EnquiryWhereUniqueInput
     update?: XOR<XOR<EnquiryUpdateToOneWithWhereWithoutAllocationInput, EnquiryUpdateWithoutAllocationInput>, EnquiryUncheckedUpdateWithoutAllocationInput>
+  }
+
+  export type AdmissionUpdateOneWithoutAllocationNestedInput = {
+    create?: XOR<AdmissionCreateWithoutAllocationInput, AdmissionUncheckedCreateWithoutAllocationInput>
+    connectOrCreate?: AdmissionCreateOrConnectWithoutAllocationInput
+    upsert?: AdmissionUpsertWithoutAllocationInput
+    disconnect?: AdmissionWhereInput | boolean
+    delete?: AdmissionWhereInput | boolean
+    connect?: AdmissionWhereUniqueInput
+    update?: XOR<XOR<AdmissionUpdateToOneWithWhereWithoutAllocationInput, AdmissionUpdateWithoutAllocationInput>, AdmissionUncheckedUpdateWithoutAllocationInput>
   }
 
   export type StaffUpdateOneWithoutAllocationsNestedInput = {
@@ -173396,14 +173667,16 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     accounts?: AccountTransactionCreateNestedManyWithoutAllocationInput
-    enquiry: EnquiryCreateNestedOneWithoutAllocationInput
+    enquiry?: EnquiryCreateNestedOneWithoutAllocationInput
+    admission?: AdmissionCreateNestedOneWithoutAllocationInput
     MedicalAssignment?: MedicalAssignmentCreateNestedManyWithoutAllocationInput
   }
 
   export type AllocationUncheckedCreateWithoutStaffInput = {
     id?: string
     refNo: string
-    enquiryId: string
+    enquiryId?: string | null
+    admissionId?: string | null
     type?: $Enums.AllocationType
     startDate?: Date | string | null
     endDate?: Date | string | null
@@ -174052,7 +174325,8 @@ export namespace Prisma {
     NOT?: AllocationScalarWhereInput | AllocationScalarWhereInput[]
     id?: StringFilter<"Allocation"> | string
     refNo?: StringFilter<"Allocation"> | string
-    enquiryId?: StringFilter<"Allocation"> | string
+    enquiryId?: StringNullableFilter<"Allocation"> | string | null
+    admissionId?: StringNullableFilter<"Allocation"> | string | null
     type?: EnumAllocationTypeFilter<"Allocation"> | $Enums.AllocationType
     staffId?: StringNullableFilter<"Allocation"> | string | null
     startDate?: DateTimeNullableFilter<"Allocation"> | Date | string | null
@@ -176035,6 +176309,7 @@ export namespace Prisma {
     MedicalAssignment?: MedicalAssignmentCreateNestedManyWithoutAdmissionInput
     serviceContract?: ServiceContractCreateNestedOneWithoutAdmissionInput
     serviceClosure?: ServiceClosureCreateNestedOneWithoutAdmissionInput
+    allocation?: AllocationCreateNestedOneWithoutAdmissionInput
   }
 
   export type AdmissionUncheckedCreateWithoutEnquiryInput = {
@@ -176056,6 +176331,7 @@ export namespace Prisma {
     MedicalAssignment?: MedicalAssignmentUncheckedCreateNestedManyWithoutAdmissionInput
     serviceContract?: ServiceContractUncheckedCreateNestedOneWithoutAdmissionInput
     serviceClosure?: ServiceClosureUncheckedCreateNestedOneWithoutAdmissionInput
+    allocation?: AllocationUncheckedCreateNestedOneWithoutAdmissionInput
   }
 
   export type AdmissionCreateOrConnectWithoutEnquiryInput = {
@@ -176079,6 +176355,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     accounts?: AccountTransactionCreateNestedManyWithoutAllocationInput
+    admission?: AdmissionCreateNestedOneWithoutAllocationInput
     staff?: StaffCreateNestedOneWithoutAllocationsInput
     MedicalAssignment?: MedicalAssignmentCreateNestedManyWithoutAllocationInput
   }
@@ -176086,6 +176363,7 @@ export namespace Prisma {
   export type AllocationUncheckedCreateWithoutEnquiryInput = {
     id?: string
     refNo: string
+    admissionId?: string | null
     type?: $Enums.AllocationType
     staffId?: string | null
     startDate?: Date | string | null
@@ -176529,6 +176807,7 @@ export namespace Prisma {
     MedicalAssignment?: MedicalAssignmentUpdateManyWithoutAdmissionNestedInput
     serviceContract?: ServiceContractUpdateOneWithoutAdmissionNestedInput
     serviceClosure?: ServiceClosureUpdateOneWithoutAdmissionNestedInput
+    allocation?: AllocationUpdateOneWithoutAdmissionNestedInput
   }
 
   export type AdmissionUncheckedUpdateWithoutEnquiryInput = {
@@ -176550,6 +176829,7 @@ export namespace Prisma {
     MedicalAssignment?: MedicalAssignmentUncheckedUpdateManyWithoutAdmissionNestedInput
     serviceContract?: ServiceContractUncheckedUpdateOneWithoutAdmissionNestedInput
     serviceClosure?: ServiceClosureUncheckedUpdateOneWithoutAdmissionNestedInput
+    allocation?: AllocationUncheckedUpdateOneWithoutAdmissionNestedInput
   }
 
   export type AllocationUpsertWithoutEnquiryInput = {
@@ -176579,6 +176859,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     accounts?: AccountTransactionUpdateManyWithoutAllocationNestedInput
+    admission?: AdmissionUpdateOneWithoutAllocationNestedInput
     staff?: StaffUpdateOneWithoutAllocationsNestedInput
     MedicalAssignment?: MedicalAssignmentUpdateManyWithoutAllocationNestedInput
   }
@@ -176586,6 +176867,7 @@ export namespace Prisma {
   export type AllocationUncheckedUpdateWithoutEnquiryInput = {
     id?: StringFieldUpdateOperationsInput | string
     refNo?: StringFieldUpdateOperationsInput | string
+    admissionId?: NullableStringFieldUpdateOperationsInput | string | null
     type?: EnumAllocationTypeFieldUpdateOperationsInput | $Enums.AllocationType
     staffId?: NullableStringFieldUpdateOperationsInput | string | null
     startDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -177171,6 +177453,53 @@ export namespace Prisma {
     create: XOR<ServiceClosureCreateWithoutAdmissionInput, ServiceClosureUncheckedCreateWithoutAdmissionInput>
   }
 
+  export type AllocationCreateWithoutAdmissionInput = {
+    id?: string
+    refNo: string
+    type?: $Enums.AllocationType
+    startDate?: Date | string | null
+    endDate?: Date | string | null
+    status?: $Enums.AllocationStatus
+    metadata?: NullableJsonNullValueInput | InputJsonValue
+    allocationScore?: number | null
+    tenantId: string
+    unitId: string
+    isDeleted?: boolean
+    deletedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    accounts?: AccountTransactionCreateNestedManyWithoutAllocationInput
+    enquiry?: EnquiryCreateNestedOneWithoutAllocationInput
+    staff?: StaffCreateNestedOneWithoutAllocationsInput
+    MedicalAssignment?: MedicalAssignmentCreateNestedManyWithoutAllocationInput
+  }
+
+  export type AllocationUncheckedCreateWithoutAdmissionInput = {
+    id?: string
+    refNo: string
+    enquiryId?: string | null
+    type?: $Enums.AllocationType
+    staffId?: string | null
+    startDate?: Date | string | null
+    endDate?: Date | string | null
+    status?: $Enums.AllocationStatus
+    metadata?: NullableJsonNullValueInput | InputJsonValue
+    allocationScore?: number | null
+    tenantId: string
+    unitId: string
+    isDeleted?: boolean
+    deletedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    accounts?: AccountTransactionUncheckedCreateNestedManyWithoutAllocationInput
+    MedicalAssignment?: MedicalAssignmentUncheckedCreateNestedManyWithoutAllocationInput
+  }
+
+  export type AllocationCreateOrConnectWithoutAdmissionInput = {
+    where: AllocationWhereUniqueInput
+    create: XOR<AllocationCreateWithoutAdmissionInput, AllocationUncheckedCreateWithoutAdmissionInput>
+  }
+
   export type EnquiryUpsertWithoutAdmissionInput = {
     update: XOR<EnquiryUpdateWithoutAdmissionInput, EnquiryUncheckedUpdateWithoutAdmissionInput>
     create: XOR<EnquiryCreateWithoutAdmissionInput, EnquiryUncheckedCreateWithoutAdmissionInput>
@@ -177455,6 +177784,59 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
+  export type AllocationUpsertWithoutAdmissionInput = {
+    update: XOR<AllocationUpdateWithoutAdmissionInput, AllocationUncheckedUpdateWithoutAdmissionInput>
+    create: XOR<AllocationCreateWithoutAdmissionInput, AllocationUncheckedCreateWithoutAdmissionInput>
+    where?: AllocationWhereInput
+  }
+
+  export type AllocationUpdateToOneWithWhereWithoutAdmissionInput = {
+    where?: AllocationWhereInput
+    data: XOR<AllocationUpdateWithoutAdmissionInput, AllocationUncheckedUpdateWithoutAdmissionInput>
+  }
+
+  export type AllocationUpdateWithoutAdmissionInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    refNo?: StringFieldUpdateOperationsInput | string
+    type?: EnumAllocationTypeFieldUpdateOperationsInput | $Enums.AllocationType
+    startDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    endDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    status?: EnumAllocationStatusFieldUpdateOperationsInput | $Enums.AllocationStatus
+    metadata?: NullableJsonNullValueInput | InputJsonValue
+    allocationScore?: NullableFloatFieldUpdateOperationsInput | number | null
+    tenantId?: StringFieldUpdateOperationsInput | string
+    unitId?: StringFieldUpdateOperationsInput | string
+    isDeleted?: BoolFieldUpdateOperationsInput | boolean
+    deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    accounts?: AccountTransactionUpdateManyWithoutAllocationNestedInput
+    enquiry?: EnquiryUpdateOneWithoutAllocationNestedInput
+    staff?: StaffUpdateOneWithoutAllocationsNestedInput
+    MedicalAssignment?: MedicalAssignmentUpdateManyWithoutAllocationNestedInput
+  }
+
+  export type AllocationUncheckedUpdateWithoutAdmissionInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    refNo?: StringFieldUpdateOperationsInput | string
+    enquiryId?: NullableStringFieldUpdateOperationsInput | string | null
+    type?: EnumAllocationTypeFieldUpdateOperationsInput | $Enums.AllocationType
+    staffId?: NullableStringFieldUpdateOperationsInput | string | null
+    startDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    endDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    status?: EnumAllocationStatusFieldUpdateOperationsInput | $Enums.AllocationStatus
+    metadata?: NullableJsonNullValueInput | InputJsonValue
+    allocationScore?: NullableFloatFieldUpdateOperationsInput | number | null
+    tenantId?: StringFieldUpdateOperationsInput | string
+    unitId?: StringFieldUpdateOperationsInput | string
+    isDeleted?: BoolFieldUpdateOperationsInput | boolean
+    deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    accounts?: AccountTransactionUncheckedUpdateManyWithoutAllocationNestedInput
+    MedicalAssignment?: MedicalAssignmentUncheckedUpdateManyWithoutAllocationNestedInput
+  }
+
   export type EnquiryCreateWithoutFollowUpsInput = {
     id?: string
     refNo: string
@@ -177732,6 +178114,55 @@ export namespace Prisma {
   export type EnquiryCreateOrConnectWithoutAllocationInput = {
     where: EnquiryWhereUniqueInput
     create: XOR<EnquiryCreateWithoutAllocationInput, EnquiryUncheckedCreateWithoutAllocationInput>
+  }
+
+  export type AdmissionCreateWithoutAllocationInput = {
+    id?: string
+    tenantId: string
+    unitId: string
+    status?: string
+    admissionPriority?: string | null
+    healthCondition?: string | null
+    clinicalStatus?: string | null
+    floor?: string | null
+    room?: string | null
+    bed?: string | null
+    admittedAt?: Date | string
+    dischargedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    enquiry?: EnquiryCreateNestedOneWithoutAdmissionInput
+    patient: PatientCreateNestedOneWithoutAdmissionsInput
+    MedicalAssignment?: MedicalAssignmentCreateNestedManyWithoutAdmissionInput
+    serviceContract?: ServiceContractCreateNestedOneWithoutAdmissionInput
+    serviceClosure?: ServiceClosureCreateNestedOneWithoutAdmissionInput
+  }
+
+  export type AdmissionUncheckedCreateWithoutAllocationInput = {
+    id?: string
+    enquiryId?: string | null
+    patientId: string
+    tenantId: string
+    unitId: string
+    status?: string
+    admissionPriority?: string | null
+    healthCondition?: string | null
+    clinicalStatus?: string | null
+    floor?: string | null
+    room?: string | null
+    bed?: string | null
+    admittedAt?: Date | string
+    dischargedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    MedicalAssignment?: MedicalAssignmentUncheckedCreateNestedManyWithoutAdmissionInput
+    serviceContract?: ServiceContractUncheckedCreateNestedOneWithoutAdmissionInput
+    serviceClosure?: ServiceClosureUncheckedCreateNestedOneWithoutAdmissionInput
+  }
+
+  export type AdmissionCreateOrConnectWithoutAllocationInput = {
+    where: AdmissionWhereUniqueInput
+    create: XOR<AdmissionCreateWithoutAllocationInput, AdmissionUncheckedCreateWithoutAllocationInput>
   }
 
   export type StaffCreateWithoutAllocationsInput = {
@@ -178022,6 +178453,61 @@ export namespace Prisma {
     Referral?: ReferralUncheckedUpdateOneWithoutEnquiryNestedInput
   }
 
+  export type AdmissionUpsertWithoutAllocationInput = {
+    update: XOR<AdmissionUpdateWithoutAllocationInput, AdmissionUncheckedUpdateWithoutAllocationInput>
+    create: XOR<AdmissionCreateWithoutAllocationInput, AdmissionUncheckedCreateWithoutAllocationInput>
+    where?: AdmissionWhereInput
+  }
+
+  export type AdmissionUpdateToOneWithWhereWithoutAllocationInput = {
+    where?: AdmissionWhereInput
+    data: XOR<AdmissionUpdateWithoutAllocationInput, AdmissionUncheckedUpdateWithoutAllocationInput>
+  }
+
+  export type AdmissionUpdateWithoutAllocationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    tenantId?: StringFieldUpdateOperationsInput | string
+    unitId?: StringFieldUpdateOperationsInput | string
+    status?: StringFieldUpdateOperationsInput | string
+    admissionPriority?: NullableStringFieldUpdateOperationsInput | string | null
+    healthCondition?: NullableStringFieldUpdateOperationsInput | string | null
+    clinicalStatus?: NullableStringFieldUpdateOperationsInput | string | null
+    floor?: NullableStringFieldUpdateOperationsInput | string | null
+    room?: NullableStringFieldUpdateOperationsInput | string | null
+    bed?: NullableStringFieldUpdateOperationsInput | string | null
+    admittedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    dischargedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    enquiry?: EnquiryUpdateOneWithoutAdmissionNestedInput
+    patient?: PatientUpdateOneRequiredWithoutAdmissionsNestedInput
+    MedicalAssignment?: MedicalAssignmentUpdateManyWithoutAdmissionNestedInput
+    serviceContract?: ServiceContractUpdateOneWithoutAdmissionNestedInput
+    serviceClosure?: ServiceClosureUpdateOneWithoutAdmissionNestedInput
+  }
+
+  export type AdmissionUncheckedUpdateWithoutAllocationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    enquiryId?: NullableStringFieldUpdateOperationsInput | string | null
+    patientId?: StringFieldUpdateOperationsInput | string
+    tenantId?: StringFieldUpdateOperationsInput | string
+    unitId?: StringFieldUpdateOperationsInput | string
+    status?: StringFieldUpdateOperationsInput | string
+    admissionPriority?: NullableStringFieldUpdateOperationsInput | string | null
+    healthCondition?: NullableStringFieldUpdateOperationsInput | string | null
+    clinicalStatus?: NullableStringFieldUpdateOperationsInput | string | null
+    floor?: NullableStringFieldUpdateOperationsInput | string | null
+    room?: NullableStringFieldUpdateOperationsInput | string | null
+    bed?: NullableStringFieldUpdateOperationsInput | string | null
+    admittedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    dischargedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    MedicalAssignment?: MedicalAssignmentUncheckedUpdateManyWithoutAdmissionNestedInput
+    serviceContract?: ServiceContractUncheckedUpdateOneWithoutAdmissionNestedInput
+    serviceClosure?: ServiceClosureUncheckedUpdateOneWithoutAdmissionNestedInput
+  }
+
   export type StaffUpsertWithoutAllocationsInput = {
     update: XOR<StaffUpdateWithoutAllocationsInput, StaffUncheckedUpdateWithoutAllocationsInput>
     create: XOR<StaffCreateWithoutAllocationsInput, StaffUncheckedCreateWithoutAllocationsInput>
@@ -178156,7 +178642,8 @@ export namespace Prisma {
     deletedAt?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
-    enquiry: EnquiryCreateNestedOneWithoutAllocationInput
+    enquiry?: EnquiryCreateNestedOneWithoutAllocationInput
+    admission?: AdmissionCreateNestedOneWithoutAllocationInput
     staff?: StaffCreateNestedOneWithoutAllocationsInput
     MedicalAssignment?: MedicalAssignmentCreateNestedManyWithoutAllocationInput
   }
@@ -178164,7 +178651,8 @@ export namespace Prisma {
   export type AllocationUncheckedCreateWithoutAccountsInput = {
     id?: string
     refNo: string
-    enquiryId: string
+    enquiryId?: string | null
+    admissionId?: string | null
     type?: $Enums.AllocationType
     staffId?: string | null
     startDate?: Date | string | null
@@ -178212,7 +178700,8 @@ export namespace Prisma {
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    enquiry?: EnquiryUpdateOneRequiredWithoutAllocationNestedInput
+    enquiry?: EnquiryUpdateOneWithoutAllocationNestedInput
+    admission?: AdmissionUpdateOneWithoutAllocationNestedInput
     staff?: StaffUpdateOneWithoutAllocationsNestedInput
     MedicalAssignment?: MedicalAssignmentUpdateManyWithoutAllocationNestedInput
   }
@@ -178220,7 +178709,8 @@ export namespace Prisma {
   export type AllocationUncheckedUpdateWithoutAccountsInput = {
     id?: StringFieldUpdateOperationsInput | string
     refNo?: StringFieldUpdateOperationsInput | string
-    enquiryId?: StringFieldUpdateOperationsInput | string
+    enquiryId?: NullableStringFieldUpdateOperationsInput | string | null
+    admissionId?: NullableStringFieldUpdateOperationsInput | string | null
     type?: EnumAllocationTypeFieldUpdateOperationsInput | $Enums.AllocationType
     staffId?: NullableStringFieldUpdateOperationsInput | string | null
     startDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -180674,15 +181164,16 @@ export namespace Prisma {
     dischargedAt?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
-    enquiry: EnquiryCreateNestedOneWithoutAdmissionInput
+    enquiry?: EnquiryCreateNestedOneWithoutAdmissionInput
     MedicalAssignment?: MedicalAssignmentCreateNestedManyWithoutAdmissionInput
     serviceContract?: ServiceContractCreateNestedOneWithoutAdmissionInput
     serviceClosure?: ServiceClosureCreateNestedOneWithoutAdmissionInput
+    allocation?: AllocationCreateNestedOneWithoutAdmissionInput
   }
 
   export type AdmissionUncheckedCreateWithoutPatientInput = {
     id?: string
-    enquiryId: string
+    enquiryId?: string | null
     tenantId: string
     unitId: string
     status?: string
@@ -180699,6 +181190,7 @@ export namespace Prisma {
     MedicalAssignment?: MedicalAssignmentUncheckedCreateNestedManyWithoutAdmissionInput
     serviceContract?: ServiceContractUncheckedCreateNestedOneWithoutAdmissionInput
     serviceClosure?: ServiceClosureUncheckedCreateNestedOneWithoutAdmissionInput
+    allocation?: AllocationUncheckedCreateNestedOneWithoutAdmissionInput
   }
 
   export type AdmissionCreateOrConnectWithoutPatientInput = {
@@ -180925,6 +181417,9 @@ export namespace Prisma {
     spO2?: number | null
     bloodSugar?: string | null
     notes?: string | null
+    shift?: string | null
+    recordedAt?: Date | string
+    department?: string | null
     recordedById: string
     verified?: boolean
     verifiedBy?: string | null
@@ -180946,6 +181441,9 @@ export namespace Prisma {
     spO2?: number | null
     bloodSugar?: string | null
     notes?: string | null
+    shift?: string | null
+    recordedAt?: Date | string
+    department?: string | null
     recordedById: string
     verified?: boolean
     verifiedBy?: string | null
@@ -181476,7 +181974,7 @@ export namespace Prisma {
     OR?: AdmissionScalarWhereInput[]
     NOT?: AdmissionScalarWhereInput | AdmissionScalarWhereInput[]
     id?: StringFilter<"Admission"> | string
-    enquiryId?: StringFilter<"Admission"> | string
+    enquiryId?: StringNullableFilter<"Admission"> | string | null
     patientId?: StringFilter<"Admission"> | string
     tenantId?: StringFilter<"Admission"> | string
     unitId?: StringFilter<"Admission"> | string
@@ -181665,6 +182163,9 @@ export namespace Prisma {
     spO2?: IntNullableFilter<"VitalSign"> | number | null
     bloodSugar?: StringNullableFilter<"VitalSign"> | string | null
     notes?: StringNullableFilter<"VitalSign"> | string | null
+    shift?: StringNullableFilter<"VitalSign"> | string | null
+    recordedAt?: DateTimeFilter<"VitalSign"> | Date | string
+    department?: StringNullableFilter<"VitalSign"> | string | null
     recordedById?: StringFilter<"VitalSign"> | string
     verified?: BoolFilter<"VitalSign"> | boolean
     verifiedBy?: StringNullableFilter<"VitalSign"> | string | null
@@ -185911,15 +186412,16 @@ export namespace Prisma {
     dischargedAt?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
-    enquiry: EnquiryCreateNestedOneWithoutAdmissionInput
+    enquiry?: EnquiryCreateNestedOneWithoutAdmissionInput
     patient: PatientCreateNestedOneWithoutAdmissionsInput
     serviceContract?: ServiceContractCreateNestedOneWithoutAdmissionInput
     serviceClosure?: ServiceClosureCreateNestedOneWithoutAdmissionInput
+    allocation?: AllocationCreateNestedOneWithoutAdmissionInput
   }
 
   export type AdmissionUncheckedCreateWithoutMedicalAssignmentInput = {
     id?: string
-    enquiryId: string
+    enquiryId?: string | null
     patientId: string
     tenantId: string
     unitId: string
@@ -185936,6 +186438,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     serviceContract?: ServiceContractUncheckedCreateNestedOneWithoutAdmissionInput
     serviceClosure?: ServiceClosureUncheckedCreateNestedOneWithoutAdmissionInput
+    allocation?: AllocationUncheckedCreateNestedOneWithoutAdmissionInput
   }
 
   export type AdmissionCreateOrConnectWithoutMedicalAssignmentInput = {
@@ -185959,14 +186462,16 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     accounts?: AccountTransactionCreateNestedManyWithoutAllocationInput
-    enquiry: EnquiryCreateNestedOneWithoutAllocationInput
+    enquiry?: EnquiryCreateNestedOneWithoutAllocationInput
+    admission?: AdmissionCreateNestedOneWithoutAllocationInput
     staff?: StaffCreateNestedOneWithoutAllocationsInput
   }
 
   export type AllocationUncheckedCreateWithoutMedicalAssignmentInput = {
     id?: string
     refNo: string
-    enquiryId: string
+    enquiryId?: string | null
+    admissionId?: string | null
     type?: $Enums.AllocationType
     staffId?: string | null
     startDate?: Date | string | null
@@ -186408,6 +186913,9 @@ export namespace Prisma {
     spO2?: number | null
     bloodSugar?: string | null
     notes?: string | null
+    shift?: string | null
+    recordedAt?: Date | string
+    department?: string | null
     recordedById: string
     verified?: boolean
     verifiedBy?: string | null
@@ -186430,6 +186938,9 @@ export namespace Prisma {
     spO2?: number | null
     bloodSugar?: string | null
     notes?: string | null
+    shift?: string | null
+    recordedAt?: Date | string
+    department?: string | null
     recordedById: string
     verified?: boolean
     verifiedBy?: string | null
@@ -186518,15 +187029,16 @@ export namespace Prisma {
     dischargedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    enquiry?: EnquiryUpdateOneRequiredWithoutAdmissionNestedInput
+    enquiry?: EnquiryUpdateOneWithoutAdmissionNestedInput
     patient?: PatientUpdateOneRequiredWithoutAdmissionsNestedInput
     serviceContract?: ServiceContractUpdateOneWithoutAdmissionNestedInput
     serviceClosure?: ServiceClosureUpdateOneWithoutAdmissionNestedInput
+    allocation?: AllocationUpdateOneWithoutAdmissionNestedInput
   }
 
   export type AdmissionUncheckedUpdateWithoutMedicalAssignmentInput = {
     id?: StringFieldUpdateOperationsInput | string
-    enquiryId?: StringFieldUpdateOperationsInput | string
+    enquiryId?: NullableStringFieldUpdateOperationsInput | string | null
     patientId?: StringFieldUpdateOperationsInput | string
     tenantId?: StringFieldUpdateOperationsInput | string
     unitId?: StringFieldUpdateOperationsInput | string
@@ -186543,6 +187055,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     serviceContract?: ServiceContractUncheckedUpdateOneWithoutAdmissionNestedInput
     serviceClosure?: ServiceClosureUncheckedUpdateOneWithoutAdmissionNestedInput
+    allocation?: AllocationUncheckedUpdateOneWithoutAdmissionNestedInput
   }
 
   export type AllocationUpsertWithoutMedicalAssignmentInput = {
@@ -186572,14 +187085,16 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     accounts?: AccountTransactionUpdateManyWithoutAllocationNestedInput
-    enquiry?: EnquiryUpdateOneRequiredWithoutAllocationNestedInput
+    enquiry?: EnquiryUpdateOneWithoutAllocationNestedInput
+    admission?: AdmissionUpdateOneWithoutAllocationNestedInput
     staff?: StaffUpdateOneWithoutAllocationsNestedInput
   }
 
   export type AllocationUncheckedUpdateWithoutMedicalAssignmentInput = {
     id?: StringFieldUpdateOperationsInput | string
     refNo?: StringFieldUpdateOperationsInput | string
-    enquiryId?: StringFieldUpdateOperationsInput | string
+    enquiryId?: NullableStringFieldUpdateOperationsInput | string | null
+    admissionId?: NullableStringFieldUpdateOperationsInput | string | null
     type?: EnumAllocationTypeFieldUpdateOperationsInput | $Enums.AllocationType
     staffId?: NullableStringFieldUpdateOperationsInput | string | null
     startDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -189088,15 +189603,16 @@ export namespace Prisma {
     dischargedAt?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
-    enquiry: EnquiryCreateNestedOneWithoutAdmissionInput
+    enquiry?: EnquiryCreateNestedOneWithoutAdmissionInput
     patient: PatientCreateNestedOneWithoutAdmissionsInput
     MedicalAssignment?: MedicalAssignmentCreateNestedManyWithoutAdmissionInput
     serviceClosure?: ServiceClosureCreateNestedOneWithoutAdmissionInput
+    allocation?: AllocationCreateNestedOneWithoutAdmissionInput
   }
 
   export type AdmissionUncheckedCreateWithoutServiceContractInput = {
     id?: string
-    enquiryId: string
+    enquiryId?: string | null
     patientId: string
     tenantId: string
     unitId: string
@@ -189113,6 +189629,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     MedicalAssignment?: MedicalAssignmentUncheckedCreateNestedManyWithoutAdmissionInput
     serviceClosure?: ServiceClosureUncheckedCreateNestedOneWithoutAdmissionInput
+    allocation?: AllocationUncheckedCreateNestedOneWithoutAdmissionInput
   }
 
   export type AdmissionCreateOrConnectWithoutServiceContractInput = {
@@ -189223,15 +189740,16 @@ export namespace Prisma {
     dischargedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    enquiry?: EnquiryUpdateOneRequiredWithoutAdmissionNestedInput
+    enquiry?: EnquiryUpdateOneWithoutAdmissionNestedInput
     patient?: PatientUpdateOneRequiredWithoutAdmissionsNestedInput
     MedicalAssignment?: MedicalAssignmentUpdateManyWithoutAdmissionNestedInput
     serviceClosure?: ServiceClosureUpdateOneWithoutAdmissionNestedInput
+    allocation?: AllocationUpdateOneWithoutAdmissionNestedInput
   }
 
   export type AdmissionUncheckedUpdateWithoutServiceContractInput = {
     id?: StringFieldUpdateOperationsInput | string
-    enquiryId?: StringFieldUpdateOperationsInput | string
+    enquiryId?: NullableStringFieldUpdateOperationsInput | string | null
     patientId?: StringFieldUpdateOperationsInput | string
     tenantId?: StringFieldUpdateOperationsInput | string
     unitId?: StringFieldUpdateOperationsInput | string
@@ -189248,6 +189766,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     MedicalAssignment?: MedicalAssignmentUncheckedUpdateManyWithoutAdmissionNestedInput
     serviceClosure?: ServiceClosureUncheckedUpdateOneWithoutAdmissionNestedInput
+    allocation?: AllocationUncheckedUpdateOneWithoutAdmissionNestedInput
   }
 
   export type UserUpsertWithoutServiceContractInput = {
@@ -189348,15 +189867,16 @@ export namespace Prisma {
     dischargedAt?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
-    enquiry: EnquiryCreateNestedOneWithoutAdmissionInput
+    enquiry?: EnquiryCreateNestedOneWithoutAdmissionInput
     patient: PatientCreateNestedOneWithoutAdmissionsInput
     MedicalAssignment?: MedicalAssignmentCreateNestedManyWithoutAdmissionInput
     serviceContract?: ServiceContractCreateNestedOneWithoutAdmissionInput
+    allocation?: AllocationCreateNestedOneWithoutAdmissionInput
   }
 
   export type AdmissionUncheckedCreateWithoutServiceClosureInput = {
     id?: string
-    enquiryId: string
+    enquiryId?: string | null
     patientId: string
     tenantId: string
     unitId: string
@@ -189373,6 +189893,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     MedicalAssignment?: MedicalAssignmentUncheckedCreateNestedManyWithoutAdmissionInput
     serviceContract?: ServiceContractUncheckedCreateNestedOneWithoutAdmissionInput
+    allocation?: AllocationUncheckedCreateNestedOneWithoutAdmissionInput
   }
 
   export type AdmissionCreateOrConnectWithoutServiceClosureInput = {
@@ -189637,15 +190158,16 @@ export namespace Prisma {
     dischargedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    enquiry?: EnquiryUpdateOneRequiredWithoutAdmissionNestedInput
+    enquiry?: EnquiryUpdateOneWithoutAdmissionNestedInput
     patient?: PatientUpdateOneRequiredWithoutAdmissionsNestedInput
     MedicalAssignment?: MedicalAssignmentUpdateManyWithoutAdmissionNestedInput
     serviceContract?: ServiceContractUpdateOneWithoutAdmissionNestedInput
+    allocation?: AllocationUpdateOneWithoutAdmissionNestedInput
   }
 
   export type AdmissionUncheckedUpdateWithoutServiceClosureInput = {
     id?: StringFieldUpdateOperationsInput | string
-    enquiryId?: StringFieldUpdateOperationsInput | string
+    enquiryId?: NullableStringFieldUpdateOperationsInput | string | null
     patientId?: StringFieldUpdateOperationsInput | string
     tenantId?: StringFieldUpdateOperationsInput | string
     unitId?: StringFieldUpdateOperationsInput | string
@@ -189662,6 +190184,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     MedicalAssignment?: MedicalAssignmentUncheckedUpdateManyWithoutAdmissionNestedInput
     serviceContract?: ServiceContractUncheckedUpdateOneWithoutAdmissionNestedInput
+    allocation?: AllocationUncheckedUpdateOneWithoutAdmissionNestedInput
   }
 
   export type UserUpsertWithoutMedicalApprovalsInput = {
@@ -195052,7 +195575,8 @@ export namespace Prisma {
   export type AllocationCreateManyStaffInput = {
     id?: string
     refNo: string
-    enquiryId: string
+    enquiryId?: string | null
+    admissionId?: string | null
     type?: $Enums.AllocationType
     startDate?: Date | string | null
     endDate?: Date | string | null
@@ -195274,14 +195798,16 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     accounts?: AccountTransactionUpdateManyWithoutAllocationNestedInput
-    enquiry?: EnquiryUpdateOneRequiredWithoutAllocationNestedInput
+    enquiry?: EnquiryUpdateOneWithoutAllocationNestedInput
+    admission?: AdmissionUpdateOneWithoutAllocationNestedInput
     MedicalAssignment?: MedicalAssignmentUpdateManyWithoutAllocationNestedInput
   }
 
   export type AllocationUncheckedUpdateWithoutStaffInput = {
     id?: StringFieldUpdateOperationsInput | string
     refNo?: StringFieldUpdateOperationsInput | string
-    enquiryId?: StringFieldUpdateOperationsInput | string
+    enquiryId?: NullableStringFieldUpdateOperationsInput | string | null
+    admissionId?: NullableStringFieldUpdateOperationsInput | string | null
     type?: EnumAllocationTypeFieldUpdateOperationsInput | $Enums.AllocationType
     startDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     endDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -195301,7 +195827,8 @@ export namespace Prisma {
   export type AllocationUncheckedUpdateManyWithoutStaffInput = {
     id?: StringFieldUpdateOperationsInput | string
     refNo?: StringFieldUpdateOperationsInput | string
-    enquiryId?: StringFieldUpdateOperationsInput | string
+    enquiryId?: NullableStringFieldUpdateOperationsInput | string | null
+    admissionId?: NullableStringFieldUpdateOperationsInput | string | null
     type?: EnumAllocationTypeFieldUpdateOperationsInput | $Enums.AllocationType
     startDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     endDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -197425,7 +197952,7 @@ export namespace Prisma {
 
   export type AdmissionCreateManyPatientInput = {
     id?: string
-    enquiryId: string
+    enquiryId?: string | null
     tenantId: string
     unitId: string
     status?: string
@@ -197523,6 +198050,9 @@ export namespace Prisma {
     spO2?: number | null
     bloodSugar?: string | null
     notes?: string | null
+    shift?: string | null
+    recordedAt?: Date | string
+    department?: string | null
     recordedById: string
     verified?: boolean
     verifiedBy?: string | null
@@ -197743,15 +198273,16 @@ export namespace Prisma {
     dischargedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    enquiry?: EnquiryUpdateOneRequiredWithoutAdmissionNestedInput
+    enquiry?: EnquiryUpdateOneWithoutAdmissionNestedInput
     MedicalAssignment?: MedicalAssignmentUpdateManyWithoutAdmissionNestedInput
     serviceContract?: ServiceContractUpdateOneWithoutAdmissionNestedInput
     serviceClosure?: ServiceClosureUpdateOneWithoutAdmissionNestedInput
+    allocation?: AllocationUpdateOneWithoutAdmissionNestedInput
   }
 
   export type AdmissionUncheckedUpdateWithoutPatientInput = {
     id?: StringFieldUpdateOperationsInput | string
-    enquiryId?: StringFieldUpdateOperationsInput | string
+    enquiryId?: NullableStringFieldUpdateOperationsInput | string | null
     tenantId?: StringFieldUpdateOperationsInput | string
     unitId?: StringFieldUpdateOperationsInput | string
     status?: StringFieldUpdateOperationsInput | string
@@ -197768,11 +198299,12 @@ export namespace Prisma {
     MedicalAssignment?: MedicalAssignmentUncheckedUpdateManyWithoutAdmissionNestedInput
     serviceContract?: ServiceContractUncheckedUpdateOneWithoutAdmissionNestedInput
     serviceClosure?: ServiceClosureUncheckedUpdateOneWithoutAdmissionNestedInput
+    allocation?: AllocationUncheckedUpdateOneWithoutAdmissionNestedInput
   }
 
   export type AdmissionUncheckedUpdateManyWithoutPatientInput = {
     id?: StringFieldUpdateOperationsInput | string
-    enquiryId?: StringFieldUpdateOperationsInput | string
+    enquiryId?: NullableStringFieldUpdateOperationsInput | string | null
     tenantId?: StringFieldUpdateOperationsInput | string
     unitId?: StringFieldUpdateOperationsInput | string
     status?: StringFieldUpdateOperationsInput | string
@@ -198026,6 +198558,9 @@ export namespace Prisma {
     spO2?: NullableIntFieldUpdateOperationsInput | number | null
     bloodSugar?: NullableStringFieldUpdateOperationsInput | string | null
     notes?: NullableStringFieldUpdateOperationsInput | string | null
+    shift?: NullableStringFieldUpdateOperationsInput | string | null
+    recordedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    department?: NullableStringFieldUpdateOperationsInput | string | null
     recordedById?: StringFieldUpdateOperationsInput | string
     verified?: BoolFieldUpdateOperationsInput | boolean
     verifiedBy?: NullableStringFieldUpdateOperationsInput | string | null
@@ -198047,6 +198582,9 @@ export namespace Prisma {
     spO2?: NullableIntFieldUpdateOperationsInput | number | null
     bloodSugar?: NullableStringFieldUpdateOperationsInput | string | null
     notes?: NullableStringFieldUpdateOperationsInput | string | null
+    shift?: NullableStringFieldUpdateOperationsInput | string | null
+    recordedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    department?: NullableStringFieldUpdateOperationsInput | string | null
     recordedById?: StringFieldUpdateOperationsInput | string
     verified?: BoolFieldUpdateOperationsInput | boolean
     verifiedBy?: NullableStringFieldUpdateOperationsInput | string | null
@@ -198068,6 +198606,9 @@ export namespace Prisma {
     spO2?: NullableIntFieldUpdateOperationsInput | number | null
     bloodSugar?: NullableStringFieldUpdateOperationsInput | string | null
     notes?: NullableStringFieldUpdateOperationsInput | string | null
+    shift?: NullableStringFieldUpdateOperationsInput | string | null
+    recordedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    department?: NullableStringFieldUpdateOperationsInput | string | null
     recordedById?: StringFieldUpdateOperationsInput | string
     verified?: BoolFieldUpdateOperationsInput | boolean
     verifiedBy?: NullableStringFieldUpdateOperationsInput | string | null
@@ -199650,6 +200191,9 @@ export namespace Prisma {
     spO2?: number | null
     bloodSugar?: string | null
     notes?: string | null
+    shift?: string | null
+    recordedAt?: Date | string
+    department?: string | null
     recordedById: string
     verified?: boolean
     verifiedBy?: string | null
@@ -199823,6 +200367,9 @@ export namespace Prisma {
     spO2?: NullableIntFieldUpdateOperationsInput | number | null
     bloodSugar?: NullableStringFieldUpdateOperationsInput | string | null
     notes?: NullableStringFieldUpdateOperationsInput | string | null
+    shift?: NullableStringFieldUpdateOperationsInput | string | null
+    recordedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    department?: NullableStringFieldUpdateOperationsInput | string | null
     recordedById?: StringFieldUpdateOperationsInput | string
     verified?: BoolFieldUpdateOperationsInput | boolean
     verifiedBy?: NullableStringFieldUpdateOperationsInput | string | null
@@ -199845,6 +200392,9 @@ export namespace Prisma {
     spO2?: NullableIntFieldUpdateOperationsInput | number | null
     bloodSugar?: NullableStringFieldUpdateOperationsInput | string | null
     notes?: NullableStringFieldUpdateOperationsInput | string | null
+    shift?: NullableStringFieldUpdateOperationsInput | string | null
+    recordedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    department?: NullableStringFieldUpdateOperationsInput | string | null
     recordedById?: StringFieldUpdateOperationsInput | string
     verified?: BoolFieldUpdateOperationsInput | boolean
     verifiedBy?: NullableStringFieldUpdateOperationsInput | string | null
@@ -199866,6 +200416,9 @@ export namespace Prisma {
     spO2?: NullableIntFieldUpdateOperationsInput | number | null
     bloodSugar?: NullableStringFieldUpdateOperationsInput | string | null
     notes?: NullableStringFieldUpdateOperationsInput | string | null
+    shift?: NullableStringFieldUpdateOperationsInput | string | null
+    recordedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    department?: NullableStringFieldUpdateOperationsInput | string | null
     recordedById?: StringFieldUpdateOperationsInput | string
     verified?: BoolFieldUpdateOperationsInput | boolean
     verifiedBy?: NullableStringFieldUpdateOperationsInput | string | null

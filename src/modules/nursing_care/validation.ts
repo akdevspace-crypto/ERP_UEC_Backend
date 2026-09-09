@@ -45,6 +45,9 @@ export const caregiverVitalChartSchema = z.object({
 
 export const vitalSignSchema = z.object({
     patientId: z.string().uuid(),
+    assignmentId: z.string().uuid().optional(),
+    shift: z.enum(['MORNING', 'EVENING']),
+    recordedAt: z.string().datetime().optional(),
     bp: z.string().optional().or(z.literal('')),
     pulse: z.coerce.number().optional(),
     temp: z.coerce.number().optional(),

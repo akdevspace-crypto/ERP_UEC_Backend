@@ -32,8 +32,8 @@ router.get('/ping', (req, res) => {
 });
 
 // Vitals (Legacy Caregiver Charts)
-router.get('/caregiver-vital-charts', getCaregiverVitalCharts);
-router.post('/caregiver-vital-charts', saveCaregiverVitalChart);
+router.get('/caregiver-vital-charts', requireRoles(['SUPER_ADMIN', 'NURSE', 'NURSING_CARE_STAFF', 'NURSING_MANAGER', 'MEDICAL_MANAGER']), getCaregiverVitalCharts);
+router.post('/caregiver-vital-charts', requireRoles(['SUPER_ADMIN', 'NURSING_CARE_STAFF', 'NURSING_MANAGER', 'MEDICAL_MANAGER']), saveCaregiverVitalChart);
 
 // Vitals (New Prisma Flow)
 router.get('/vitals', getVitals);

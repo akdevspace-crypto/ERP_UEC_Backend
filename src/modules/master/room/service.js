@@ -22,9 +22,14 @@ export const createRoom = async (data, unitId, tenantId) => {
     });
 };
 
-export const getRooms = async (unitId, tenantId) => {
+export const getRooms = async (unitId, tenantId, floor) => {
     return await prisma.room.findMany({
-        where: { unitId, tenantId, isDeleted: false },
+        where: { 
+            unitId, 
+            tenantId, 
+            isDeleted: false,
+            ...(floor ? { floor } : {}) 
+        },
         orderBy: { createdAt: 'desc' }
     });
 };
