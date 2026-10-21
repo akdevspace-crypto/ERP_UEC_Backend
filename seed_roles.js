@@ -31,7 +31,8 @@ async function seed() {
         { name: "CRM_MANAGER", description: "CRM / Enquiry Manager" },
         { name: "OPERATIONS_STAFF", description: "Daily operations staff" },
         { name: "OPERATIONS_MANAGER", description: "Operations Manager" },
-        { name: "SECURITY_STAFF", description: "Facility security" }
+        { name: "SECURITY_STAFF", description: "Facility security" },
+        { name: "HOME_CARE_MANAGER", description: "Manager of Home Care Operations" }
     ];
 
     for (const roleData of roles) {

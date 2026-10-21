@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { protect } from '../../shared/middleware/auth.middleware.js';
 import { enforceTenant } from '../../shared/middleware/tenant.middleware.js';
+import { requirePermission } from '../../shared/middleware/rbac.middleware.js';
+import { canReadFacilityWide } from '../../shared/utils/rbac.js';
 import { upload, saveFileMetadata } from '../storage/service.js';
 import { uploadToSupabase } from '../../shared/utils/supabase.js';
 import { prisma } from '../../app/prisma.js';
@@ -11,6 +13,65 @@ const router = Router();
 
 router.use(protect);
 router.use(enforceTenant);
+
+const residentEntityTypes = new Set(['PATIENT', 'ADMISSION']);
+
+const isResidentEntityType = (entityType) => residentEntityTypes.has(String(entityType || '').trim().toUpperCase());
+
+const hasUnitAccess = (user, unitId) => {
+    const unitAccess = user?.unitAccess || [];
+    return unitAccess.includes('*') || unitAccess.includes(unitId) || canReadFacilityWide(user);
+};
+
+const requireResidentFilePermission = (action) => (req, res, next) => {
+    const entityType = String(req.body?.entityType || req.query?.entityType || 'ADMIN_FILE').trim().toUpperCase();
+    if (!isResidentEntityType(entityType)) return next();
+    return requirePermission('PATIENT', action, true)(req, res, next);
+};
+
+const resolveResidentDocumentEntity = async (req, entityType, entityId) => {
+    const normalizedType = String(entityType || '').trim().toUpperCase();
+    if (!isResidentEntityType(normalizedType)) return null;
+    if (!entityId) {
+        const error = new Error('Resident document entityId is required');
+        error.status = 400;
+        throw error;
+    }
+
+    if (normalizedType === 'PATIENT') {
+        const patient = await prisma.patient.findFirst({
+            where: { id: entityId, tenantId: req.user.tenantId },
+            select: { id: true, unitId: true }
+        });
+        if (!patient) {
+            const error = new Error('Patient not found');
+            error.status = 404;
+            throw error;
+        }
+        if (!hasUnitAccess(req.user, patient.unitId)) {
+            const error = new Error('Not authorized for this patient unit');
+            error.status = 403;
+            throw error;
+        }
+        return { unitId: patient.unitId };
+    }
+
+    const admission = await prisma.admission.findFirst({
+        where: { id: entityId, tenantId: req.user.tenantId },
+        select: { id: true, unitId: true, patient: { select: { unitId: true, tenantId: true } } }
+    });
+    if (!admission || admission.patient?.tenantId !== req.user.tenantId) {
+        const error = new Error('Admission not found');
+        error.status = 404;
+        throw error;
+    }
+    if (admission.patient.unitId !== admission.unitId || !hasUnitAccess(req.user, admission.unitId)) {
+        const error = new Error('Not authorized for this admission unit');
+        error.status = 403;
+        throw error;
+    }
+    return { unitId: admission.unitId };
+};
 
 const registerSchema = z.object({
     group: z.string().min(1),
@@ -516,12 +577,14 @@ router.delete('/register/:id', async (req, res, next) => {
     }
 });
 
-router.get('/files', async (req, res, next) => {
+router.get('/files', requireResidentFilePermission('READ'), async (req, res, next) => {
     try {
         const entityId = String(req.query.entityId || '').trim();
+        const entityType = String(req.query.entityType || 'ADMIN_FILE').trim().toUpperCase();
+        const residentEntity = await resolveResidentDocumentEntity(req, entityType, entityId);
         const where = {
             tenantId: req.user.tenantId,
-            entityType: 'ADMIN_FILE',
+            entityType,
             isDeleted: false
         };
 
@@ -534,13 +597,17 @@ router.get('/files', async (req, res, next) => {
             orderBy: { createdAt: 'desc' }
         });
 
-        res.json({ success: true, data: files });
+        const authorizedFiles = residentEntity
+            ? files.filter((file) => file.unitId === residentEntity.unitId)
+            : files;
+
+        res.json({ success: true, data: authorizedFiles });
     } catch (error) {
         next(error);
     }
 });
 
-router.post('/upload', upload.single('file'), async (req, res, next) => {
+router.post('/upload', upload.single('file'), requireResidentFilePermission('UPDATE'), async (req, res, next) => {
     try {
         if (!req.file) {
             return res.status(400).json({ success: false, message: 'File is required' });
@@ -551,6 +618,9 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
             return res.status(400).json({ success: false, message: 'Admin file entry is required' });
         }
 
+        const entityType = String(req.body.entityType || 'ADMIN_FILE').trim().toUpperCase();
+        const residentEntity = await resolveResidentDocumentEntity(req, entityType, entityId);
+
         const fileUrl = await uploadToSupabase('Erp_software', req.file);
         const adminFilesUnitId = await getAdminFilesUnitId(req);
         const metadata = await saveFileMetadata({
@@ -558,10 +628,11 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
             fileUrl,
             fileType: req.file.mimetype,
             fileSize: req.file.size,
-            entityType: 'ADMIN_FILE',
+            entityType,
             entityId,
+            category: req.body.category ? String(req.body.category) : null,
             tenantId: req.user.tenantId,
-            unitId: adminFilesUnitId
+            unitId: residentEntity?.unitId || adminFilesUnitId
         });
 
         res.status(201).json({

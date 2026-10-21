@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { prisma } from '../../app/prisma.js';
 import { sendNotification } from '../notification/service.js';
 import { ensurePatientBillingTables, postStockIssueToPatientLedger } from '../patient_billing/ledger.js';
+import { uploadToSupabase } from '../../shared/utils/supabase.js';
 import {
     caregiverVitalChartSchema,
     medicationScheduleSchema,
@@ -15,11 +16,11 @@ const medicationScheduleAction = 'MEDICATION_SCHEDULE';
 const activeAssignmentStatuses = ['PENDING', 'ASSIGNED', 'IN_PROGRESS', 'ON_HOLD'];
 const historicalVitalAccessRoles = ['NURSING_MANAGER', 'NURSING_SUPER_HEAD', 'SUPER_ADMIN', 'MEDICAL_MANAGER'];
 
-export const resolveNursingStaffAssignment = async (tenantId: string, user: any, patientId: string, requestedAssignmentId?: string) => {
+export const resolveNursingStaffAssignment = async (tenantId: string, user: any, patientId: string, requestedAssignmentId?: string, allowTerminalStatuses: boolean = false) => {
     if (!user) return { authorized: false, reason: 'Unauthenticated', staff: null, assignmentId: null, staffId: null };
 
     const userRole = String(user.role || user.roleName || '').trim().toUpperCase();
-    const privilegedRoles = ['SUPER_ADMIN', 'NURSING_MANAGER', 'MEDICAL_MANAGER'];
+    const privilegedRoles = ['SUPER_ADMIN', 'NURSING_MANAGER', 'MEDICAL_MANAGER', 'MEDICAL_DOCTOR'];
     const permissions = user.permissions || [];
 
     if (privilegedRoles.includes(userRole) || permissions.includes('ALL_ACCESS')) {
@@ -36,17 +37,24 @@ export const resolveNursingStaffAssignment = async (tenantId: string, user: any,
     }
 
     const now = new Date();
+    const statuses = allowTerminalStatuses 
+        ? [...activeAssignmentStatuses, 'WAITING_APPROVAL', 'APPROVED', 'COMPLETED', 'CANCELLED']
+        : activeAssignmentStatuses;
+        
+    const timeCondition = allowTerminalStatuses ? {} : {
+        startAt: { lte: now },
+        OR: [{ endAt: null }, { endAt: { gte: now } }]
+    };
+
     const assignment = await (prisma as any).medicalAssignment.findFirst({
         where: {
             ...(requestedAssignmentId ? { id: requestedAssignmentId } : {}),
             staffId: staff.id,
             patientId,
             tenantId,
-            unitId: staff.unitId,
             isDeleted: false,
-            status: { in: activeAssignmentStatuses },
-            startAt: { lte: now },
-            OR: [{ endAt: null }, { endAt: { gte: now } }]
+            status: { in: statuses },
+            ...timeCondition
         },
         orderBy: { startAt: 'desc' },
         select: { id: true }
@@ -266,18 +274,23 @@ export const getCaregiverVitalChartsService = async (month: string, patientId: s
     }
 
     for (const v of vitals) {
-        const d = v.recordedAt.getUTCDate();
+        const recDate = new Date(v.recordedAt || v.createdAt);
+        const d = recDate.getDate();
         const entry = entriesMap[d];
-        const recorder = userMap[v.recordedById] || { name: 'Unknown', department: v.department };
+        if (!entry) continue;
+        const recorder = userMap[v.recordedById] || { name: 'Staff', department: v.department };
         
-        if (v.shift === 'MORNING') {
+        const isMorning = v.shift === 'MORNING' || (!v.shift && recDate.getHours() < 12);
+        const isEvening = v.shift === 'EVENING' || (!v.shift && recDate.getHours() >= 12);
+
+        if (isMorning) {
             if (!entry.tempMor && v.temp !== null) entry.tempMor = String(v.temp);
             if (!entry.bpMor && v.bp !== null) entry.bpMor = v.bp;
             if (!entry.pulseMor && v.pulse !== null) entry.pulseMor = String(v.pulse);
             if (!entry.spo2Mor && v.spO2 !== null) entry.spo2Mor = String(v.spO2);
             entry.recordedByMor = recorder.name;
             entry.departmentMor = v.department || recorder.department;
-        } else if (v.shift === 'EVENING') {
+        } else if (isEvening) {
             if (!entry.tempEve && v.temp !== null) entry.tempEve = String(v.temp);
             if (!entry.bpEve && v.bp !== null) entry.bpEve = v.bp;
             if (!entry.pulseEve && v.pulse !== null) entry.pulseEve = String(v.pulse);
@@ -287,21 +300,8 @@ export const getCaregiverVitalChartsService = async (month: string, patientId: s
         }
     }
 
-    let entries = Object.values(entriesMap).filter((e: any) => e.tempMor || e.tempEve || e.bpMor || e.bpEve || e.pulseMor || e.pulseEve || e.spo2Mor || e.spo2Eve);
+    const entries = Object.values(entriesMap).filter((e: any) => e.tempMor || e.tempEve || e.bpMor || e.bpEve || e.pulseMor || e.pulseEve || e.spo2Mor || e.spo2Eve);
 
-    // Today-Only Enforcement for GET
-    const roleName = String(typeof user?.role === 'object' ? user.role?.name : user?.role || '').trim().toUpperCase();
-    if (user && !historicalVitalAccessRoles.includes(roleName)) {
-        const now = new Date();
-        const todayLocalDay = now.getDate();
-        const todayMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-        
-        if (month !== todayMonthStr) {
-            entries = [];
-        } else {
-            entries = entries.filter((e: any) => e.day === todayLocalDay);
-        }
-    }
 
     const chart = {
         id: `virtual-chart-${patientId}-${month}`,
@@ -599,12 +599,45 @@ export const administerMedicationDoseService = async (id: string, validated: any
     return medicationSchedule;
 };
 
-export const getVitalsService = async (patientId: string, scope: { tenantId: string; unitId: string }) => {
-    return (prisma as any).vitalSign.findMany({
-        where: { patientId, tenantId: scope.tenantId, unitId: scope.unitId, isDeleted: false },
-        orderBy: { createdAt: 'desc' }
+export const getVitalsService = async (patientId: string | undefined, scope: { tenantId: string; unitId: string }) => {
+    const whereClause: any = {
+        tenantId: scope.tenantId,
+        isDeleted: false
+    };
+    if (patientId) {
+        whereClause.patientId = patientId;
+    } else if (scope.unitId) {
+        whereClause.unitId = scope.unitId;
+    }
+
+    const vitals = await (prisma as any).vitalSign.findMany({
+        where: whereClause,
+        include: {
+            patient: { select: { id: true, name: true, elderId: true } }
+        },
+        orderBy: { recordedAt: 'desc' },
+        take: patientId ? undefined : 50
     });
+
+    const userIds = [...new Set(vitals.map((v: any) => v.recordedById))].filter(Boolean);
+    const users = userIds.length ? await (prisma as any).user.findMany({
+        where: { id: { in: userIds } },
+        select: { id: true, firstName: true, lastName: true, staff: { select: { firstName: true, lastName: true, department: true } } }
+    }) : [];
+    
+    const userMap = users.reduce((acc: any, u: any) => {
+        const staffName = u.staff ? `${u.staff.firstName || ''} ${u.staff.lastName || ''}`.trim() : null;
+        const fullName = `${u.firstName || ''} ${u.lastName || ''}`.trim();
+        acc[u.id] = staffName || fullName || 'Staff';
+        return acc;
+    }, {});
+
+    return vitals.map((v: any) => ({
+        ...v,
+        recordedByName: userMap[v.recordedById] || 'Staff'
+    }));
 };
+
 
 export const saveVitalService = async (validated: any, scope: { tenantId: string; unitId: string }, user: any) => {
     const authCheck = await resolveNursingStaffAssignment(scope.tenantId, user, validated.patientId);
@@ -628,7 +661,6 @@ export const saveVitalService = async (validated: any, scope: { tenantId: string
                 id: validated.assignmentId,
                 patientId: validated.patientId,
                 tenantId: scope.tenantId,
-                unitId: staff.unitId,
                 isDeleted: false,
                 status: { in: ['PENDING', 'ASSIGNED', 'IN_PROGRESS', 'ON_HOLD'] },
                 startAt: { lte: now },
@@ -642,18 +674,88 @@ export const saveVitalService = async (validated: any, scope: { tenantId: string
         assignmentId = assignment.id;
     }
 
-    return (prisma as any).vitalSign.create({
-        data: {
-            ...validated,
-            recordedById: user.id,
-            recordedAt: new Date(),
-            department: staff.department,
-            assignmentId,
-            verified: false,
+    const bpVal = validated.bp || (validated.systolic && validated.diastolic ? `${validated.systolic}/${validated.diastolic}` : null);
+    const tempVal = validated.temp ?? validated.temperature ?? null;
+    const spO2Val = validated.spO2 ?? validated.spo2 ?? null;
+    const bloodSugarVal = validated.bloodSugar ? String(validated.bloodSugar) : null;
+
+    const targetShift = validated.shift || 'MORNING';
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const existingToday = await (prisma as any).vitalSign.findFirst({
+        where: {
+            patientId: validated.patientId,
             tenantId: scope.tenantId,
-            unitId: staff.unitId
-        }
+            shift: targetShift,
+            createdAt: { gte: todayStart },
+            isDeleted: false
+        },
+        orderBy: { createdAt: 'desc' }
     });
+
+    let resultVital: any;
+    if (existingToday) {
+        resultVital = await (prisma as any).vitalSign.update({
+            where: { id: existingToday.id },
+            data: {
+                bp: bpVal || existingToday.bp,
+                pulse: validated.pulse ?? existingToday.pulse,
+                temp: tempVal ?? existingToday.temp,
+                spO2: spO2Val ?? existingToday.spO2,
+                bloodSugar: bloodSugarVal || existingToday.bloodSugar,
+                notes: validated.notes || existingToday.notes,
+                recordedById: user.id,
+                recordedAt: validated.recordedAt ? new Date(validated.recordedAt) : new Date(),
+                department: staff.department,
+                assignmentId: assignmentId || existingToday.assignmentId
+            }
+        });
+    } else {
+        resultVital = await (prisma as any).vitalSign.create({
+            data: {
+                patientId: validated.patientId,
+                bp: bpVal,
+                pulse: validated.pulse || null,
+                temp: tempVal,
+                spO2: spO2Val,
+                bloodSugar: bloodSugarVal,
+                notes: validated.notes || null,
+                photoUrl: validated.photoUrl || null,
+                shift: targetShift,
+                recordedById: user.id,
+                recordedAt: validated.recordedAt ? new Date(validated.recordedAt) : new Date(),
+                department: staff.department,
+                assignmentId,
+                verified: false,
+                tenantId: scope.tenantId,
+                unitId: staff.unitId || scope.unitId
+            }
+        });
+    }
+
+    const userName = user.staff?.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Staff';
+    return {
+        ...resultVital,
+        isUpdate: Boolean(existingToday),
+        recordedByName: userName
+    };
+};
+
+export const uploadVitalPhotoService = async (file: any, scope: { tenantId: string; unitId: string }, user: any) => {
+    if (!file) throw new Error('No image file provided');
+
+    const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!allowedMimeTypes.includes(file.mimetype)) {
+        throw new Error('Invalid image format. Allowed: JPG, PNG, WEBP');
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+        throw new Error('Image size exceeds maximum 5MB limit');
+    }
+
+    const publicUrl = await uploadToSupabase('Erp_software', file);
+    return { photoUrl: publicUrl };
 };
 
 export const verifyVitalService = async (id: string, notes: string | undefined, scope: { tenantId: string; unitId: string }, userId: string) => {
@@ -674,6 +776,20 @@ export const getPrescriptionsService = async (patientId: string | null, scope: {
 };
 
 export const createPrescriptionService = async (validated: any, scope: { tenantId: string; unitId: string }, userId: string) => {
+    if (validated.productId) {
+        const product = await (prisma as any).product.findFirst({
+            where: {
+                id: validated.productId,
+                tenantId: scope.tenantId,
+                unitId: scope.unitId,
+                status: true
+            }
+        });
+        if (!product) {
+            throw new Error('Selected medicine product is invalid, inactive, or belongs to another unit/tenant.');
+        }
+    }
+
     return (prisma as any).prescription.create({
         data: {
             ...validated,

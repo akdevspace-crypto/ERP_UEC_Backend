@@ -18,12 +18,27 @@ const defaultFrontendOrigins = [
     'http://127.0.0.1:3000',
     'http://localhost:3001',
     'http://127.0.0.1:3001',
+    'http://localhost:5172',
+    'http://127.0.0.1:5172',
     'http://localhost:5173',
     'http://127.0.0.1:5173',
     'https://unisenth.onrender.com',
+    'http://localhost:5174',
     'http://127.0.0.1:5174',
+    'http://localhost:5175',
+    'http://127.0.0.1:5175',
+    'http://localhost:5176',
+    'http://127.0.0.1:5176',
     'http://localhost:5177',
-    'http://127.0.0.1:5177'
+    'http://127.0.0.1:5177',
+    'http://localhost:5178',
+    'http://127.0.0.1:5178',
+    'http://localhost:5179',
+    'http://127.0.0.1:5179',
+    'http://localhost:5180',
+    'http://127.0.0.1:5180',
+    'http://localhost:5181',
+    'http://127.0.0.1:5181'
 ];
 
 const configuredFrontendOrigins = (process.env.FRONTEND_URL || '')
@@ -54,7 +69,7 @@ const corsOptions = {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-unit-id']
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-unit-id', 'x-inventory-domain']
 };
 app.use(cors(corsOptions));
 app.use(express.json({

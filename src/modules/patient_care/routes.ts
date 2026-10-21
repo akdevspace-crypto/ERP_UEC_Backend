@@ -7,7 +7,12 @@ import {
     updateAdlStatus,
     getNutritionPlans,
     createNutritionPlan,
-    getClinicalSummary
+    getClinicalSummary,
+    getNutritionRecords,
+    createNutritionRecord,
+    createNursingRevenue,
+    getNursingPatientRevenueToday,
+    getNursingManagerRevenue
 } from './controller.js';
 
 
@@ -29,9 +34,20 @@ router.patch('/adl-records/:id/status', updateAdlStatus);
 router.get('/nutrition', getNutritionPlans);
 router.post('/nutrition', createNutritionPlan);
 
+router.get('/nutrition-records', getNutritionRecords);
+router.post('/nutrition-records', createNutritionRecord);
+
 // Incident Reports are currently owned by UEC (/api/v1/uec/incidents). We will leave them there until full ownership transfer is analyzed.
 
 // Shared Clinical Summary
 router.get('/residents/:id/clinical-summary', getClinicalSummary);
 
+// Manager Revenue / Usage read facade (NursingApp)
+router.get('/manager/revenue', requireRoles(['NURSING_MANAGER', 'SUPER_ADMIN', 'MEDICAL_MANAGER']), getNursingManagerRevenue);
+
+// Manual Revenue Entry & Read (NursingApp)
+router.post('/patients/:patientId/revenue', createNursingRevenue);
+router.get('/patients/:patientId/revenue/today', getNursingPatientRevenueToday);
+
 export default router;
+

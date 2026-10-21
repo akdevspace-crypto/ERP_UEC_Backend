@@ -42,7 +42,9 @@ export const medicalAssignmentStatusSchema = z.enum([
     'IN_PROGRESS',
     'ON_HOLD',
     'COMPLETED',
-    'CANCELLED'
+    'CANCELLED',
+    'WAITING_APPROVAL',
+    'APPROVED'
 ]);
 
 const medicalAssignmentBaseSchema = z.object({
@@ -63,11 +65,27 @@ const medicalAssignmentBaseSchema = z.object({
     metadata: z.any().optional()
 });
 
-export const createMedicalAssignmentSchema = addDateRangeValidation(medicalAssignmentBaseSchema);
+export const createMedicalAssignmentSchema = addDateRangeValidation(medicalAssignmentBaseSchema).superRefine((data, ctx) => {
+    if (data.dutyType === 'NURSING_CARE' && !data.patientId) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['patientId'],
+            message: "Patient is required for a Nursing Clinical Duty."
+        });
+    }
+});
 
 export const updateMedicalAssignmentSchema = addDateRangeValidation(medicalAssignmentBaseSchema.partial().extend({
     staffId: optionalUuid
-}));
+})).superRefine((data, ctx) => {
+    if (data.dutyType === 'NURSING_CARE' && data.patientId === null) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['patientId'],
+            message: "Patient is required for a Nursing Clinical Duty."
+        });
+    }
+});
 
 export const updateMedicalAssignmentStatusSchema = z.object({
     status: medicalAssignmentStatusSchema,
@@ -83,7 +101,8 @@ export const medicalAssignmentQuerySchema = z.object({
     search: optionalString,
     from: optionalDateString,
     to: optionalDateString,
-    activeOnly: booleanish.optional()
+    activeOnly: booleanish.optional(),
+    homeCare: booleanish.optional()
 });
 
 export const createDoctorVisitSchema = z.object({

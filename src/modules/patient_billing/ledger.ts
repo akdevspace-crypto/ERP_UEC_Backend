@@ -96,7 +96,7 @@ const toServiceRow = (allocation: any) => {
     };
 };
 
-const getAllocationForLedger = async (tx: any, allocationId: string, tenantId: string) => {
+const getAllocationForLedger = async (tx: any, allocationId: string, tenantId: string, expectedUnitId?: string | null) => {
     const allocation = await tx.allocation.findFirst({
         where: {
             id: allocationId,
@@ -118,7 +118,13 @@ const getAllocationForLedger = async (tx: any, allocationId: string, tenantId: s
         }
     });
 
-    return allocation ? toServiceRow(allocation) : null;
+    if (!allocation) return null;
+
+    if (expectedUnitId && allocation.unitId !== expectedUnitId) {
+        throw new Error(`Patient allocation ${allocationId} belongs to unit ${allocation.unitId}, which does not match expected unit ${expectedUnitId}`);
+    }
+
+    return toServiceRow(allocation);
 };
 
 export const createPatientLedgerEntryForAllocation = async (
@@ -126,6 +132,7 @@ export const createPatientLedgerEntryForAllocation = async (
     payload: {
         tenantId: string;
         allocationId: string;
+        expectedUnitId?: string | null;
         costDate?: Date | string | null;
         category: string;
         description: string;
@@ -169,7 +176,7 @@ export const createPatientLedgerEntryForAllocation = async (
         if (invoiceDuplicate?.[0]) return invoiceDuplicate[0];
     }
 
-    const service = await getAllocationForLedger(tx, payload.allocationId, payload.tenantId);
+    const service = await getAllocationForLedger(tx, payload.allocationId, payload.tenantId, payload.expectedUnitId);
     if (!service) return null;
 
     const quantity = Number(payload.quantity || 0);
@@ -267,6 +274,7 @@ export const postStockIssueToPatientLedger = async (tx: any, request: any, userI
     return createPatientLedgerEntryForAllocation(tx, {
         tenantId: request.tenantId,
         allocationId,
+        expectedUnitId: request.unitId || null,
         costDate: request.approvedAt || new Date(),
         category: 'Medicine Charges',
         description: `${request.productName || 'Medicine'}${request.issuedTo ? ` for ${request.issuedTo}` : ''}${needsRateReview}`,

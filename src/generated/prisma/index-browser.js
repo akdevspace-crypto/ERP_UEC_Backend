@@ -193,6 +193,8 @@ exports.Prisma.UserScalarFieldEnum = {
   id: 'id',
   email: 'email',
   passwordHash: 'passwordHash',
+  mustChangePassword: 'mustChangePassword',
+  tokenVersion: 'tokenVersion',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt',
@@ -204,6 +206,16 @@ exports.Prisma.UserScalarFieldEnum = {
   roleId: 'roleId',
   tenantId: 'tenantId',
   unitId: 'unitId'
+};
+
+exports.Prisma.PasswordResetTokenScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  tokenHash: 'tokenHash',
+  expiresAt: 'expiresAt',
+  isUsed: 'isUsed',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
 };
 
 exports.Prisma.StaffScalarFieldEnum = {
@@ -613,6 +625,7 @@ exports.Prisma.FileStorageScalarFieldEnum = {
   fileSize: 'fileSize',
   entityType: 'entityType',
   entityId: 'entityId',
+  category: 'category',
   tenantId: 'tenantId',
   unitId: 'unitId',
   isDeleted: 'isDeleted',
@@ -764,6 +777,7 @@ exports.Prisma.VitalSignScalarFieldEnum = {
   spO2: 'spO2',
   bloodSugar: 'bloodSugar',
   notes: 'notes',
+  photoUrl: 'photoUrl',
   shift: 'shift',
   recordedAt: 'recordedAt',
   department: 'department',
@@ -1127,6 +1141,7 @@ exports.Prisma.PrescriptionScalarFieldEnum = {
   approvedBy: 'approvedBy',
   tenantId: 'tenantId',
   unitId: 'unitId',
+  productId: 'productId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -1177,6 +1192,22 @@ exports.Prisma.NutritionScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
+exports.Prisma.NutritionRecordScalarFieldEnum = {
+  id: 'id',
+  patientId: 'patientId',
+  assignmentId: 'assignmentId',
+  meal: 'meal',
+  careDate: 'careDate',
+  status: 'status',
+  remarks: 'remarks',
+  recordedBy: 'recordedBy',
+  recordedAt: 'recordedAt',
+  tenantId: 'tenantId',
+  unitId: 'unitId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.MaintenanceScalarFieldEnum = {
   id: 'id',
   type: 'type',
@@ -1221,6 +1252,7 @@ exports.Prisma.WasteLogScalarFieldEnum = {
 
 exports.Prisma.ProductScalarFieldEnum = {
   id: 'id',
+  code: 'code',
   name: 'name',
   category: 'category',
   subCategory: 'subCategory',
@@ -1232,6 +1264,7 @@ exports.Prisma.ProductScalarFieldEnum = {
   minStockLevel: 'minStockLevel',
   isBatchTracked: 'isBatchTracked',
   defaultRevenuePrice: 'defaultRevenuePrice',
+  averageCost: 'averageCost',
   chargeableInCareRevenue: 'chargeableInCareRevenue',
   status: 'status'
 };
@@ -1252,6 +1285,7 @@ exports.Prisma.ProductBatchScalarFieldEnum = {
   batchNumber: 'batchNumber',
   expiryDate: 'expiryDate',
   quantity: 'quantity',
+  unitCost: 'unitCost',
   tenantId: 'tenantId',
   unitId: 'unitId',
   createdAt: 'createdAt',
@@ -1263,9 +1297,173 @@ exports.Prisma.PurchaseScalarFieldEnum = {
   productId: 'productId',
   quantity: 'quantity',
   vendor: 'vendor',
+  vendorId: 'vendorId',
   tenantId: 'tenantId',
   unitId: 'unitId',
   batchId: 'batchId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.PurchaseOrderScalarFieldEnum = {
+  id: 'id',
+  orderNumber: 'orderNumber',
+  vendorId: 'vendorId',
+  status: 'status',
+  orderDate: 'orderDate',
+  expectedDeliveryDate: 'expectedDeliveryDate',
+  notes: 'notes',
+  subtotal: 'subtotal',
+  taxAmount: 'taxAmount',
+  totalAmount: 'totalAmount',
+  currency: 'currency',
+  tenantId: 'tenantId',
+  unitId: 'unitId',
+  createdById: 'createdById',
+  createdByName: 'createdByName',
+  approvedById: 'approvedById',
+  approvedByName: 'approvedByName',
+  approvedAt: 'approvedAt',
+  isDeleted: 'isDeleted',
+  deletedAt: 'deletedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.PurchaseOrderItemScalarFieldEnum = {
+  id: 'id',
+  purchaseOrderId: 'purchaseOrderId',
+  productId: 'productId',
+  orderedQuantity: 'orderedQuantity',
+  receivedQuantity: 'receivedQuantity',
+  unitPrice: 'unitPrice',
+  taxRate: 'taxRate',
+  taxAmount: 'taxAmount',
+  totalAmount: 'totalAmount',
+  status: 'status',
+  notes: 'notes',
+  tenantId: 'tenantId',
+  unitId: 'unitId',
+  isDeleted: 'isDeleted',
+  deletedAt: 'deletedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.GoodsReceiptNoteScalarFieldEnum = {
+  id: 'id',
+  grnNumber: 'grnNumber',
+  purchaseOrderId: 'purchaseOrderId',
+  vendorId: 'vendorId',
+  idempotencyKey: 'idempotencyKey',
+  receivedDate: 'receivedDate',
+  deliveryChallanNo: 'deliveryChallanNo',
+  supplierInvoiceNo: 'supplierInvoiceNo',
+  invoiceNo: 'invoiceNo',
+  invoiceDate: 'invoiceDate',
+  totalAmount: 'totalAmount',
+  notes: 'notes',
+  receivedById: 'receivedById',
+  receivedByName: 'receivedByName',
+  tenantId: 'tenantId',
+  unitId: 'unitId',
+  isDeleted: 'isDeleted',
+  deletedAt: 'deletedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.GoodsReceiptItemScalarFieldEnum = {
+  id: 'id',
+  goodsReceiptNoteId: 'goodsReceiptNoteId',
+  purchaseOrderItemId: 'purchaseOrderItemId',
+  productId: 'productId',
+  receivedQuantity: 'receivedQuantity',
+  rejectedQuantity: 'rejectedQuantity',
+  unitCost: 'unitCost',
+  taxRate: 'taxRate',
+  taxAmount: 'taxAmount',
+  totalCost: 'totalCost',
+  batchNumber: 'batchNumber',
+  expiryDate: 'expiryDate',
+  batchId: 'batchId',
+  stockMovementId: 'stockMovementId',
+  notes: 'notes',
+  tenantId: 'tenantId',
+  unitId: 'unitId',
+  isDeleted: 'isDeleted',
+  deletedAt: 'deletedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.SupplierReturnScalarFieldEnum = {
+  id: 'id',
+  returnNumber: 'returnNumber',
+  vendorId: 'vendorId',
+  sourceType: 'sourceType',
+  sourceReference: 'sourceReference',
+  grnId: 'grnId',
+  purchaseId: 'purchaseId',
+  idempotencyKey: 'idempotencyKey',
+  returnDate: 'returnDate',
+  reason: 'reason',
+  status: 'status',
+  totalQuantity: 'totalQuantity',
+  notes: 'notes',
+  returnedById: 'returnedById',
+  returnedByName: 'returnedByName',
+  tenantId: 'tenantId',
+  unitId: 'unitId',
+  isDeleted: 'isDeleted',
+  deletedAt: 'deletedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.SupplierReturnItemScalarFieldEnum = {
+  id: 'id',
+  supplierReturnId: 'supplierReturnId',
+  productId: 'productId',
+  batchId: 'batchId',
+  batchNumber: 'batchNumber',
+  expiryDate: 'expiryDate',
+  returnQuantity: 'returnQuantity',
+  unitCost: 'unitCost',
+  totalCost: 'totalCost',
+  reason: 'reason',
+  stockMovementId: 'stockMovementId',
+  tenantId: 'tenantId',
+  unitId: 'unitId',
+  isDeleted: 'isDeleted',
+  deletedAt: 'deletedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.PhysicalCountScalarFieldEnum = {
+  id: 'id',
+  auditNumber: 'auditNumber',
+  productId: 'productId',
+  batchId: 'batchId',
+  batchNumber: 'batchNumber',
+  systemQuantityAtCount: 'systemQuantityAtCount',
+  physicalQuantity: 'physicalQuantity',
+  variance: 'variance',
+  status: 'status',
+  reason: 'reason',
+  notes: 'notes',
+  countedById: 'countedById',
+  countedByName: 'countedByName',
+  countedAt: 'countedAt',
+  reconciledById: 'reconciledById',
+  reconciledByName: 'reconciledByName',
+  reconciledAt: 'reconciledAt',
+  reconciliationMovementId: 'reconciliationMovementId',
+  tenantId: 'tenantId',
+  unitId: 'unitId',
+  isDeleted: 'isDeleted',
+  deletedAt: 'deletedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -1353,7 +1551,11 @@ exports.Prisma.DonationScalarFieldEnum = {
   specialPrayerMessage: 'specialPrayerMessage',
   preferredPrayerDate: 'preferredPrayerDate',
   wishToVisitHome: 'wishToVisitHome',
-  honouredPersonImage: 'honouredPersonImage'
+  honouredPersonImage: 'honouredPersonImage',
+  reconciliationStatus: 'reconciliationStatus',
+  reconciledAt: 'reconciledAt',
+  reconciledById: 'reconciledById',
+  allocatedAmount: 'allocatedAmount'
 };
 
 exports.Prisma.DonationReferenceScalarFieldEnum = {
@@ -1445,7 +1647,8 @@ exports.Prisma.StockIssueRequestScalarFieldEnum = {
   allocationId: 'allocationId',
   patientId: 'patientId',
   rate: 'rate',
-  amount: 'amount'
+  amount: 'amount',
+  prescriptionId: 'prescriptionId'
 };
 
 exports.Prisma.AdminFileRegisterScalarFieldEnum = {
@@ -1814,9 +2017,16 @@ exports.Prisma.ProjectScalarFieldEnum = {
 exports.Prisma.FundingAllocationScalarFieldEnum = {
   id: 'id',
   projectId: 'projectId',
+  unitId: 'unitId',
   amount: 'amount',
+  sourceType: 'sourceType',
+  sourceDonationId: 'sourceDonationId',
+  sourceAccountId: 'sourceAccountId',
+  sourceReference: 'sourceReference',
   source: 'source',
   notes: 'notes',
+  idempotencyKey: 'idempotencyKey',
+  allocatedById: 'allocatedById',
   date: 'date',
   tenantId: 'tenantId',
   isDeleted: 'isDeleted',
@@ -1827,12 +2037,24 @@ exports.Prisma.FundingAllocationScalarFieldEnum = {
 exports.Prisma.ProjectExpenditureScalarFieldEnum = {
   id: 'id',
   projectId: 'projectId',
+  unitId: 'unitId',
   amount: 'amount',
   description: 'description',
   category: 'category',
   date: 'date',
   approvalStatus: 'approvalStatus',
   approvedById: 'approvedById',
+  rejectionReason: 'rejectionReason',
+  submittedById: 'submittedById',
+  decidedAt: 'decidedAt',
+  paymentStatus: 'paymentStatus',
+  paymentVoucherRef: 'paymentVoucherRef',
+  paymentMode: 'paymentMode',
+  paidAt: 'paidAt',
+  paidById: 'paidById',
+  justification: 'justification',
+  receiptRef: 'receiptRef',
+  idempotencyKey: 'idempotencyKey',
   tenantId: 'tenantId',
   isDeleted: 'isDeleted',
   createdAt: 'createdAt',
@@ -2020,6 +2242,194 @@ exports.Prisma.VehicleMovementScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
+exports.Prisma.VitalMonitoringRequirementScalarFieldEnum = {
+  id: 'id',
+  patientId: 'patientId',
+  assignmentId: 'assignmentId',
+  monitoringType: 'monitoringType',
+  frequency: 'frequency',
+  customIntervalMinutes: 'customIntervalMinutes',
+  startAt: 'startAt',
+  endAt: 'endAt',
+  isActive: 'isActive',
+  notes: 'notes',
+  createdBy: 'createdBy',
+  tenantId: 'tenantId',
+  unitId: 'unitId',
+  isDeleted: 'isDeleted',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.PatientAttentionScalarFieldEnum = {
+  id: 'id',
+  patientId: 'patientId',
+  assignmentId: 'assignmentId',
+  category: 'category',
+  priority: 'priority',
+  observation: 'observation',
+  status: 'status',
+  createdBy: 'createdBy',
+  resolvedById: 'resolvedById',
+  resolvedAt: 'resolvedAt',
+  resolutionNotes: 'resolutionNotes',
+  tenantId: 'tenantId',
+  unitId: 'unitId',
+  isDeleted: 'isDeleted',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.ResidentConsentScalarFieldEnum = {
+  id: 'id',
+  patientId: 'patientId',
+  admissionId: 'admissionId',
+  consentType: 'consentType',
+  title: 'title',
+  version: 'version',
+  content: 'content',
+  status: 'status',
+  signedByName: 'signedByName',
+  signerRelation: 'signerRelation',
+  signedAt: 'signedAt',
+  signatureUrl: 'signatureUrl',
+  notes: 'notes',
+  ipAddress: 'ipAddress',
+  userAgent: 'userAgent',
+  tenantId: 'tenantId',
+  unitId: 'unitId',
+  createdById: 'createdById',
+  isDeleted: 'isDeleted',
+  deletedAt: 'deletedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.AmbulanceVehicleScalarFieldEnum = {
+  id: 'id',
+  vehicleNo: 'vehicleNo',
+  type: 'type',
+  status: 'status',
+  baseLocation: 'baseLocation',
+  tenantId: 'tenantId',
+  unitId: 'unitId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.AmbulanceTripScalarFieldEnum = {
+  id: 'id',
+  refNo: 'refNo',
+  clientName: 'clientName',
+  mobile: 'mobile',
+  pickupLocation: 'pickupLocation',
+  destination: 'destination',
+  priority: 'priority',
+  status: 'status',
+  dispatchTime: 'dispatchTime',
+  kmStart: 'kmStart',
+  kmEnd: 'kmEnd',
+  tripNotes: 'tripNotes',
+  totalAmount: 'totalAmount',
+  vehicleId: 'vehicleId',
+  driverId: 'driverId',
+  supportStaffId: 'supportStaffId',
+  patientId: 'patientId',
+  tenantId: 'tenantId',
+  unitId: 'unitId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.VendorBillScalarFieldEnum = {
+  id: 'id',
+  billNumber: 'billNumber',
+  vendorId: 'vendorId',
+  purchaseOrderId: 'purchaseOrderId',
+  goodsReceiptNoteId: 'goodsReceiptNoteId',
+  billDate: 'billDate',
+  dueDate: 'dueDate',
+  status: 'status',
+  subtotal: 'subtotal',
+  taxAmount: 'taxAmount',
+  discountAmount: 'discountAmount',
+  totalAmount: 'totalAmount',
+  paidAmount: 'paidAmount',
+  balanceAmount: 'balanceAmount',
+  notes: 'notes',
+  idempotencyKey: 'idempotencyKey',
+  accountTransactionId: 'accountTransactionId',
+  tenantId: 'tenantId',
+  unitId: 'unitId',
+  isDeleted: 'isDeleted',
+  deletedAt: 'deletedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.VendorBillItemScalarFieldEnum = {
+  id: 'id',
+  vendorBillId: 'vendorBillId',
+  productId: 'productId',
+  goodsReceiptItemId: 'goodsReceiptItemId',
+  quantity: 'quantity',
+  unitPrice: 'unitPrice',
+  taxRate: 'taxRate',
+  taxAmount: 'taxAmount',
+  totalAmount: 'totalAmount',
+  tenantId: 'tenantId',
+  unitId: 'unitId',
+  isDeleted: 'isDeleted',
+  deletedAt: 'deletedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.GLAccountScalarFieldEnum = {
+  id: 'id',
+  code: 'code',
+  name: 'name',
+  accountType: 'accountType',
+  normalBalance: 'normalBalance',
+  description: 'description',
+  isActive: 'isActive',
+  tenantId: 'tenantId',
+  unitId: 'unitId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.JournalEntryScalarFieldEnum = {
+  id: 'id',
+  entryNumber: 'entryNumber',
+  entryDate: 'entryDate',
+  sourceModule: 'sourceModule',
+  sourceReference: 'sourceReference',
+  description: 'description',
+  status: 'status',
+  isReversed: 'isReversed',
+  reversalOfId: 'reversalOfId',
+  idempotencyKey: 'idempotencyKey',
+  tenantId: 'tenantId',
+  unitId: 'unitId',
+  createdById: 'createdById',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.JournalLineScalarFieldEnum = {
+  id: 'id',
+  journalEntryId: 'journalEntryId',
+  accountId: 'accountId',
+  debit: 'debit',
+  credit: 'credit',
+  description: 'description',
+  tenantId: 'tenantId',
+  unitId: 'unitId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -2124,7 +2534,9 @@ exports.MedicalAssignmentStatus = exports.$Enums.MedicalAssignmentStatus = {
   IN_PROGRESS: 'IN_PROGRESS',
   ON_HOLD: 'ON_HOLD',
   COMPLETED: 'COMPLETED',
-  CANCELLED: 'CANCELLED'
+  CANCELLED: 'CANCELLED',
+  WAITING_APPROVAL: 'WAITING_APPROVAL',
+  APPROVED: 'APPROVED'
 };
 
 exports.ContractStatus = exports.$Enums.ContractStatus = {
@@ -2175,6 +2587,23 @@ exports.VehicleMovementStatus = exports.$Enums.VehicleMovementStatus = {
   COMPLETED: 'COMPLETED'
 };
 
+exports.AmbulanceVehicleStatus = exports.$Enums.AmbulanceVehicleStatus = {
+  AVAILABLE: 'AVAILABLE',
+  ON_TRIP: 'ON_TRIP',
+  MAINTENANCE: 'MAINTENANCE'
+};
+
+exports.AmbulanceTripStatus = exports.$Enums.AmbulanceTripStatus = {
+  REQUESTED: 'REQUESTED',
+  DISPATCH_READY: 'DISPATCH_READY',
+  DISPATCHED: 'DISPATCHED',
+  EN_ROUTE: 'EN_ROUTE',
+  ARRIVED: 'ARRIVED',
+  COMPLETED: 'COMPLETED',
+  BILLED: 'BILLED',
+  CANCELLED: 'CANCELLED'
+};
+
 exports.Prisma.ModelName = {
   Tenant: 'Tenant',
   Unit: 'Unit',
@@ -2182,6 +2611,7 @@ exports.Prisma.ModelName = {
   Permission: 'Permission',
   RolePermission: 'RolePermission',
   User: 'User',
+  PasswordResetToken: 'PasswordResetToken',
   Staff: 'Staff',
   StaffDocument: 'StaffDocument',
   StaffSalary: 'StaffSalary',
@@ -2238,6 +2668,7 @@ exports.Prisma.ModelName = {
   MedicationLog: 'MedicationLog',
   DoctorVisit: 'DoctorVisit',
   Nutrition: 'Nutrition',
+  NutritionRecord: 'NutritionRecord',
   Maintenance: 'Maintenance',
   Laundry: 'Laundry',
   WasteLog: 'WasteLog',
@@ -2245,6 +2676,13 @@ exports.Prisma.ModelName = {
   Stock: 'Stock',
   ProductBatch: 'ProductBatch',
   Purchase: 'Purchase',
+  PurchaseOrder: 'PurchaseOrder',
+  PurchaseOrderItem: 'PurchaseOrderItem',
+  GoodsReceiptNote: 'GoodsReceiptNote',
+  GoodsReceiptItem: 'GoodsReceiptItem',
+  SupplierReturn: 'SupplierReturn',
+  SupplierReturnItem: 'SupplierReturnItem',
+  PhysicalCount: 'PhysicalCount',
   Invoice: 'Invoice',
   Expense: 'Expense',
   Donor: 'Donor',
@@ -2283,7 +2721,17 @@ exports.Prisma.ModelName = {
   ResidentGateMovement: 'ResidentGateMovement',
   StaffDailyMovement: 'StaffDailyMovement',
   StaffGateTrip: 'StaffGateTrip',
-  VehicleMovement: 'VehicleMovement'
+  VehicleMovement: 'VehicleMovement',
+  VitalMonitoringRequirement: 'VitalMonitoringRequirement',
+  PatientAttention: 'PatientAttention',
+  ResidentConsent: 'ResidentConsent',
+  AmbulanceVehicle: 'AmbulanceVehicle',
+  AmbulanceTrip: 'AmbulanceTrip',
+  VendorBill: 'VendorBill',
+  VendorBillItem: 'VendorBillItem',
+  GLAccount: 'GLAccount',
+  JournalEntry: 'JournalEntry',
+  JournalLine: 'JournalLine'
 };
 
 /**

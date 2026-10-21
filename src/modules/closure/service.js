@@ -1,6 +1,7 @@
 import { prisma } from '../../app/prisma.js';
 import * as repo from './repository.js';
 import { AppError } from '../../shared/utils/response.js';
+import { getFinancialClearance } from '../accounts/service.js';
 
 export const startOrFetchClosure = async (admissionId, ctx) => {
     // Verify Admission belongs to tenant/unit
@@ -21,34 +22,17 @@ export const startOrFetchClosure = async (admissionId, ctx) => {
         });
     }
 
-    // Determine outstanding balance
-    // Simple logic: Invoices - Receipts
-    const invoices = await prisma.invoice.findMany({
-        where: { patientId: admission.patientId, tenantId: ctx.tenantId, status: { not: 'CANCELLED' } }
-    });
+    // Delegate financial calculation to Finance domain service
+    const clearance = await getFinancialClearance(ctx.tenantId, admission.enquiryId, ctx.unitId);
     
-    // AccountTransactions linked to these invoices (or we can just sum account transactions)
-    // Actually timeline uses AccountTransaction type INVOICE and RECEIPT
-    const allocations = await prisma.allocation.findMany({
-        where: { enquiryId: admission.enquiryId, tenantId: ctx.tenantId }
-    });
-    const allocationIds = allocations.map(a => a.id);
-    
-    const transactions = await prisma.accountTransaction.findMany({
-        where: { allocationId: { in: allocationIds }, status: 'POSTED', isDeleted: false }
-    });
-    
-    const totalInvoice = transactions.filter(t => t.type === 'INVOICE').reduce((s, t) => s + (t.amount || 0), 0);
-    const totalReceipt = transactions.filter(t => t.type === 'RECEIPT').reduce((s, t) => s + (t.amount || 0), 0);
-    const outstandingBalance = totalInvoice - totalReceipt;
-    
-    return { ...closure, outstandingBalance };
+    return { ...closure, outstandingBalance: clearance.outstandingBalance };
 };
 
 export const clearRequirement = async (id, { type, notes }, ctx) => {
     let closure = await repo.getClosureById(id, ctx);
     if (!closure) throw new AppError('Closure not found', 404);
     if (closure.tenantId !== ctx.tenantId) throw new AppError('Access denied', 403);
+    if (ctx.unitId && ctx.unitId !== 'ALL' && closure.unitId !== ctx.unitId) throw new AppError('Access denied', 403);
     
     const updateData = {};
     if (type === 'MEDICAL') {
@@ -56,22 +40,11 @@ export const clearRequirement = async (id, { type, notes }, ctx) => {
         updateData.medicalClearedById = ctx.userId;
         updateData.medicalClearedAt = new Date();
     } else if (type === 'FINANCE') {
-        // Enforce outstanding balance logic
-        const allocations = await prisma.allocation.findMany({
-            where: { enquiryId: closure.admission.enquiryId, tenantId: ctx.tenantId }
-        });
-        const allocationIds = allocations.map(a => a.id);
-        
-        const transactions = await prisma.accountTransaction.findMany({
-            where: { allocationId: { in: allocationIds }, status: 'POSTED', isDeleted: false }
-        });
-        
-        const totalInvoice = transactions.filter(t => t.type === 'INVOICE').reduce((s, t) => s + (t.amount || 0), 0);
-        const totalReceipt = transactions.filter(t => t.type === 'RECEIPT').reduce((s, t) => s + (t.amount || 0), 0);
-        const outstandingBalance = totalInvoice - totalReceipt;
+        // Enforce outstanding balance logic via Finance domain service
+        const clearance = await getFinancialClearance(ctx.tenantId, closure.admission.enquiryId, ctx.unitId);
 
-        if (outstandingBalance > 0) {
-            throw new AppError(`Cannot clear Finance: Outstanding balance is Rs. ${outstandingBalance.toFixed(2)}`, 400);
+        if (!clearance.isCleared) {
+            throw new AppError(`Cannot clear Finance: Outstanding balance is Rs. ${clearance.outstandingBalance.toFixed(2)}`, 400);
         }
 
         updateData.financeCleared = true;

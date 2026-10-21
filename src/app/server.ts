@@ -11,6 +11,7 @@ import { getOmnichannelRuntimeSettings } from '../config/omnichannel.js';
 import { startOutboundWorker, stopOutboundWorker } from '../outbound/worker.runtime.js';
 import { startImapWorker, stopImapWorker } from '../modules/webhooks/imapService.js';
 import { startCallQueueWorkers } from '../modules/calls/queues.js';
+import { startVitalMonitoringScheduler } from '../modules/nursing_care/monitoring.service.js';
 
 const PORT = process.env.PORT || 4000;
 const enabled = (value: string | undefined | null, fallback = false) => {
@@ -26,6 +27,7 @@ const startServer = async () => {
         console.log('[DB] Connected to PostgreSQL successfully');
         startPrismaKeepAlive();
         console.log('[DB] Keep-alive ping scheduled every 30 seconds');
+        startVitalMonitoringScheduler();
 
         const server = http.createServer(app);
 

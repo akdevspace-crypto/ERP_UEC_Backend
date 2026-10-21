@@ -118,6 +118,7 @@ export const updateUser = async (tenantId, userId, data) => {
 
     if (data.password) {
         updateData.passwordHash = await bcrypt.hash(data.password, 10);
+        updateData.tokenVersion = { increment: 1 };
     }
 
     return prisma.user.update({

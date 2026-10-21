@@ -1,3 +1,4 @@
+import { recurringBillingService } from './recurringBilling.service.js';
 import { Router } from 'express';
 import { randomUUID } from 'crypto';
 import { createRequire } from 'module';
@@ -6,6 +7,7 @@ import path from 'path';
 import { z } from 'zod';
 import { prisma } from '../../app/prisma.js';
 import { auth, enforceTenant } from '../../shared/middleware/auth.middleware.js';
+import { requireAnyPermission } from '../../shared/middleware/rbac.middleware.js';
 import { generateRefNumber as generateRef } from '../../shared/utils/refGenerator.js';
 import { canReadFacilityWide } from '../../shared/utils/rbac.js';
 import {
@@ -13,10 +15,37 @@ import {
     ensurePatientBillingTables as ensureLedgerPatientBillingTables,
     reconcileAllocationCompletionBilling
 } from './ledger.js';
+import { postMonthlyPatientInvoiceToLedger } from '../accounts/service.js';
 import axios from 'axios';
 import { uploadToSupabase } from '../../shared/utils/supabase.js';
 
 const router = Router();
+
+const billingAdminRoles = ['SUPER_ADMIN', 'SUPERADMIN', 'ADMIN', 'UNCF_ADMIN', 'FINANCE_MANAGER'];
+const billingViewRoles = ['SUPER_ADMIN', 'SUPERADMIN', 'ADMIN', 'UNCF_ADMIN', 'FINANCE_MANAGER', 'HOME_CARE_MANAGER', 'PATIENT_CARE_MANAGER'];
+const billingPermissions = ['Finance', 'Finance Dashboard', 'Invoice', 'Patient Billing', 'Patient Expense Ledger', 'ALL_ACCESS'];
+const billingViewPermissions = ['Finance', 'Finance Dashboard', 'Invoice', 'Patient Billing', 'Patient Expense Ledger', 'Home Care', 'Home Care Manager', 'Home Care Dashboard', 'Service Contracts', 'ALL_ACCESS'];
+
+const caregiverRevenueRoles = [
+    ...billingAdminRoles,
+    'NURSING_MANAGER',
+    'MEDICAL_MANAGER',
+    'NURSE',
+    'NURSING_CARE_STAFF',
+    'MEDICAL_DOCTOR',
+    'PATIENT_CARE_MANAGER',
+    'HOME_CARE_MANAGER'
+];
+const caregiverRevenuePermissions = [
+    ...billingPermissions,
+    'Inhouse Care',
+    'Nursing',
+    'Daily Care Checklist',
+    'Medical Operations',
+    'In-House Care',
+    'Care Management'
+];
+
 const require = createRequire(import.meta.url);
 const multer: any = require('multer');
 const billUploadDir = path.join(process.cwd(), 'public', 'uploads', 'patient-bills');
@@ -468,7 +497,7 @@ const getAllocationForCost = async (tx: any, allocationId: string, tenantId: str
     return { allocation, service: toServiceRow(allocation) };
 };
 
-router.get('/services', auth, enforceTenant, async (req: any, res: any) => {
+router.get('/services', auth, enforceTenant, requireAnyPermission(billingViewPermissions, billingViewRoles), async (req: any, res: any) => {
     try {
         const { tenantId, unitId } = scope(req);
         const includeAllUnits = canReadAllUnits(req.user) && req.query?.scope === 'all';
@@ -490,7 +519,7 @@ router.get('/services', auth, enforceTenant, async (req: any, res: any) => {
     }
 });
 
-router.get('/entries', auth, enforceTenant, async (req: any, res: any) => {
+router.get('/entries', auth, enforceTenant, requireAnyPermission(billingViewPermissions, billingViewRoles), async (req: any, res: any) => {
     try {
         await ensurePatientBillingTables();
         await ensureLedgerPatientBillingTables();
@@ -609,7 +638,7 @@ router.get('/entries', auth, enforceTenant, async (req: any, res: any) => {
     }
 });
 
-router.get('/caregiver-revenue-sheets', auth, enforceTenant, async (req: any, res: any) => {
+router.get('/caregiver-revenue-sheets', auth, enforceTenant, requireAnyPermission(caregiverRevenuePermissions, caregiverRevenueRoles), async (req: any, res: any) => {
     try {
         await ensureCaregiverRevenueSheetTable();
         const readScope = String(req.query.scope || '').toLowerCase() === 'all' && canReadAllUnits(req.user)
@@ -633,7 +662,7 @@ router.get('/caregiver-revenue-sheets', auth, enforceTenant, async (req: any, re
     }
 });
 
-router.post('/caregiver-revenue-sheets', auth, enforceTenant, async (req: any, res: any) => {
+router.post('/caregiver-revenue-sheets', auth, enforceTenant, requireAnyPermission(caregiverRevenuePermissions, caregiverRevenueRoles), async (req: any, res: any) => {
     try {
         await ensurePatientBillingTables();
         await ensureCaregiverRevenueSheetTable();
@@ -643,10 +672,38 @@ router.post('/caregiver-revenue-sheets', auth, enforceTenant, async (req: any, r
         const identity = validated.allocationId || validated.patientId || validated.patientName;
 
         const result = await (prisma as any).$transaction(async (tx: any) => {
-            const targetUnit = validated.allocationId
+            let targetAllocationId = validated.allocationId || null;
+            let targetClientName = validated.clientName || null;
+
+            if (!targetAllocationId && (validated.patientId || validated.patientName)) {
+                try {
+                    const foundAlloc = await tx.allocation.findFirst({
+                        where: {
+                            tenantId: activeScope.tenantId,
+                            isDeleted: false,
+                            OR: [
+                                ...(validated.patientId ? [{ enquiry: { admission: { patientId: validated.patientId } } }] : []),
+                                { enquiry: { admission: { patient: { name: { equals: validated.patientName, mode: 'insensitive' } } } } }
+                            ]
+                        },
+                        include: allocationInclude,
+                        orderBy: { updatedAt: 'desc' }
+                    });
+                    if (foundAlloc) {
+                        targetAllocationId = foundAlloc.id;
+                        if (!targetClientName) {
+                            targetClientName = toServiceRow(foundAlloc).clientName;
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[CaregiverRevenueSheet] Allocation auto-resolve skipped:', e.message);
+                }
+            }
+
+            const targetUnit = targetAllocationId
                 ? await tx.allocation.findFirst({
                     where: {
-                        id: validated.allocationId,
+                        id: targetAllocationId,
                         tenantId: activeScope.tenantId,
                         isDeleted: false
                     },
@@ -670,10 +727,10 @@ router.post('/caregiver-revenue-sheets', auth, enforceTenant, async (req: any, r
             const rows = existing?.[0]
                 ? await tx.$queryRaw`
                     UPDATE "CaregiverRevenueSheet"
-                    SET "allocationId" = ${validated.allocationId || null},
+                    SET "allocationId" = ${targetAllocationId},
                         "patientId" = ${validated.patientId || null},
                         "patientName" = ${validated.patientName},
-                        "clientName" = ${validated.clientName || null},
+                        "clientName" = ${targetClientName},
                         "items" = ${JSON.stringify(validated.items)}::jsonb,
                         "signatures" = ${JSON.stringify(validated.signatures || {})}::jsonb,
                         "totalAmount" = ${totalAmount},
@@ -689,15 +746,20 @@ router.post('/caregiver-revenue-sheets', auth, enforceTenant, async (req: any, r
                         "createdAt", "updatedAt"
                     )
                     VALUES (
-                        ${id}, ${validated.allocationId || null}, ${validated.patientId || null}, ${validated.patientName},
-                        ${validated.clientName || null}, ${validated.month}, ${JSON.stringify(validated.items)}::jsonb,
+                        ${id}, ${targetAllocationId}, ${validated.patientId || null}, ${validated.patientName},
+                        ${targetClientName}, ${validated.month}, ${JSON.stringify(validated.items)}::jsonb,
                         ${JSON.stringify(validated.signatures || {})}::jsonb, ${totalAmount}, ${validated.status || 'DRAFT'},
                         ${activeScope.tenantId}, ${sheetUnitId}, ${req.user.id || null}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
                     )
                     RETURNING *
                 `;
 
-            const ledgerSync = await syncCaregiverRevenueToLedger(tx, id, validated, activeScope.tenantId, req.user.id || null);
+            const payloadForLedger = {
+                ...validated,
+                allocationId: targetAllocationId,
+                clientName: targetClientName
+            };
+            const ledgerSync = await syncCaregiverRevenueToLedger(tx, id, payloadForLedger, activeScope.tenantId, req.user.id || null);
             return { sheet: rows[0], ledgerSync };
         }, {
             maxWait: 10000,
@@ -719,7 +781,7 @@ router.post('/caregiver-revenue-sheets', auth, enforceTenant, async (req: any, r
     }
 });
 
-router.get('/medicine-catalog', auth, enforceTenant, async (req: any, res: any) => {
+router.get('/medicine-catalog', auth, enforceTenant, requireAnyPermission(billingViewPermissions, billingViewRoles), async (req: any, res: any) => {
     try {
         await ensurePatientBillingTables();
         const { tenantId, unitId } = scope(req);
@@ -804,7 +866,7 @@ router.get('/medicine-catalog', auth, enforceTenant, async (req: any, res: any) 
     }
 });
 
-router.post('/entries', auth, enforceTenant, async (req: any, res: any) => {
+router.post('/entries', auth, enforceTenant, requireAnyPermission(billingPermissions, billingAdminRoles), async (req: any, res: any) => {
     try {
         await ensurePatientBillingTables();
         const data = costEntrySchema.parse(req.body);
@@ -841,7 +903,7 @@ router.post('/entries', auth, enforceTenant, async (req: any, res: any) => {
     }
 });
 
-router.post('/entries/upload-bill', auth, enforceTenant, billUpload.single('bill'), async (req: any, res: any) => {
+router.post('/entries/upload-bill', auth, enforceTenant, requireAnyPermission(billingPermissions, billingAdminRoles), billUpload.single('bill'), async (req: any, res: any) => {
     try {
         await ensurePatientBillingTables();
         if (!req.file) {
@@ -899,7 +961,7 @@ router.post('/entries/upload-bill', auth, enforceTenant, billUpload.single('bill
     }
 });
 
-router.post('/generate-invoice', auth, enforceTenant, async (req: any, res: any) => {
+router.post('/generate-invoice', auth, enforceTenant, requireAnyPermission(billingPermissions, billingAdminRoles), async (req: any, res: any) => {
     try {
         await ensurePatientBillingTables();
         const data = invoiceSchema.parse(req.body);
@@ -947,37 +1009,28 @@ router.post('/generate-invoice', auth, enforceTenant, async (req: any, res: any)
                 throw error;
             }
 
-            const invoiceRefNo = (await reserveRefNumbers(tx, 'INV', tenantId, invoiceUnitId, 1))[0];
-            const invoice = await tx.accountTransaction.create({
-                data: {
-                    refNo: invoiceRefNo,
-                    allocationId,
-                    type: 'INVOICE',
-                    amount: totalAmount,
-                    paymentMode: 'UPI',
-                    category: 'Monthly Patient Invoice',
-                    clientName: entries[0].clientName || entries[0].patientName || 'Patient Family',
-                    notes: data.notes || `Monthly patient invoice for ${entries[0].patientName}`,
-                    status: 'CREATED',
-                    date: new Date(),
-                    metadata: {
-                        source: 'PATIENT_EXPENSE_LEDGER',
-                        invoiceType: 'MONTHLY_PATIENT_INVOICE',
-                        invoiceWorkflowStatus: 'GENERATED',
-                        ledgerEntryIds: entries.map((entry: any) => entry.id),
-                        costNos: entries.map((entry: any) => entry.costNo),
-                        allocationRefs: allocationIds,
-                        patientName: entries[0].patientName,
-                        clientName: entries[0].clientName,
-                        serviceType: entries[0].serviceType,
-                        billingPeriodFrom: periodFrom,
-                        billingPeriodTo: periodTo,
-                        chargeSummary,
-                        upiId: data.upiId || null,
-                        qrLabel: data.qrLabel || 'GPay / UPI'
-                    },
-                    tenantId,
-                    unitId: invoiceUnitId
+            const invoice = await postMonthlyPatientInvoiceToLedger(tx, {
+                tenantId,
+                unitId: invoiceUnitId,
+                allocationId,
+                totalAmount,
+                clientName: entries[0].clientName || entries[0].patientName || 'Patient Family',
+                notes: data.notes || `Monthly patient invoice for ${entries[0].patientName}`,
+                metadata: {
+                    source: 'PATIENT_EXPENSE_LEDGER',
+                    invoiceType: 'MONTHLY_PATIENT_INVOICE',
+                    invoiceWorkflowStatus: 'GENERATED',
+                    ledgerEntryIds: entries.map((entry: any) => entry.id),
+                    costNos: entries.map((entry: any) => entry.costNo),
+                    allocationRefs: allocationIds,
+                    patientName: entries[0].patientName,
+                    clientName: entries[0].clientName,
+                    serviceType: entries[0].serviceType,
+                    billingPeriodFrom: periodFrom,
+                    billingPeriodTo: periodTo,
+                    chargeSummary,
+                    upiId: data.upiId || null,
+                    qrLabel: data.qrLabel || 'GPay / UPI'
                 }
             });
 
@@ -1008,7 +1061,7 @@ router.post('/generate-invoice', auth, enforceTenant, async (req: any, res: any)
     }
 });
 
-router.post('/mark-sent', auth, enforceTenant, async (req: any, res: any) => {
+router.post('/mark-sent', auth, enforceTenant, requireAnyPermission(billingPermissions, billingAdminRoles), async (req: any, res: any) => {
     try {
         await ensurePatientBillingTables();
         const data = paymentSentSchema.parse(req.body);
@@ -1048,7 +1101,7 @@ router.post('/mark-sent', auth, enforceTenant, async (req: any, res: any) => {
     }
 });
 
-router.post('/send-whatsapp-pdf', auth, memoryUpload.single('pdf'), async (req: any, res: any) => {
+router.post('/send-whatsapp-pdf', auth, enforceTenant, requireAnyPermission(billingPermissions, billingAdminRoles), memoryUpload.single('pdf'), async (req: any, res: any) => {
     try {
         if (!req.file) throw new Error('PDF file is required');
         const { targetNumber, messageBody } = req.body;
@@ -1093,7 +1146,7 @@ router.post('/send-whatsapp-pdf', auth, memoryUpload.single('pdf'), async (req: 
     }
 });
 
-router.get('/patient-lookup', auth, enforceTenant, async (req: any, res: any) => {
+router.get('/patient-lookup', auth, enforceTenant, requireAnyPermission(billingViewPermissions, billingViewRoles), async (req: any, res: any) => {
     try {
         const { query } = req.query;
         if (!query || query.length < 3) {
@@ -1135,6 +1188,43 @@ router.get('/patient-lookup', auth, enforceTenant, async (req: any, res: any) =>
         res.json({ success: true, data: patients });
     } catch (error: any) {
         res.status(400).json({ success: false, message: error.message });
+    }
+});
+
+
+// Recurring Monthly Billing Engine
+router.get('/recurring/preview', auth, enforceTenant, requireAnyPermission(billingViewPermissions, billingViewRoles), async (req: any, res: any) => {
+    try {
+        const { tenantId, unitId } = scope(req);
+        const month = parseInt(String(req.query.month || new Date().getMonth() + 1), 10);
+        const year = parseInt(String(req.query.year || new Date().getFullYear()), 10);
+
+        const result = await recurringBillingService.previewCycle(
+            { tenantId, unitId: unitId === 'ALL_UNITS' ? null : unitId },
+            month,
+            year
+        );
+        res.json({ success: true, data: result });
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+router.post('/recurring/run-cycle', auth, enforceTenant, requireAnyPermission(billingPermissions, billingAdminRoles), async (req: any, res: any) => {
+    try {
+        const { tenantId, unitId } = scope(req);
+        const { month, year, selectedAllocationIds } = req.body;
+        const curMonth = month ? parseInt(String(month), 10) : new Date().getMonth() + 1;
+        const curYear = year ? parseInt(String(year), 10) : new Date().getFullYear();
+
+        const result = await recurringBillingService.executeCycle(
+            { tenantId, unitId: unitId || 'default-unit' },
+            req.user,
+            { month: curMonth, year: curYear, selectedAllocationIds }
+        );
+        res.json({ success: true, data: result, message: 'Recurring billing cycle completed successfully' });
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 

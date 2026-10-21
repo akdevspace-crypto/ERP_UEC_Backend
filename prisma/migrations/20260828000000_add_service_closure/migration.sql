@@ -1,4 +1,4 @@
-﻿-- CreateEnum
+-- CreateEnum
 CREATE TYPE "ClosureStatus" AS ENUM ('IN_PROGRESS', 'READY', 'EXECUTED');
 
 -- AlterEnum

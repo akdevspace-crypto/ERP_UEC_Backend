@@ -3,7 +3,61 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { prisma } from '../../app/prisma.js';
 import { auth, enforceTenant } from '../../shared/middleware/auth.middleware.js';
+import { requirePermission } from '../../shared/middleware/rbac.middleware.js';
 import { generateRefNumber } from '../../shared/utils/refGenerator.js';
+
+const isUnitAuthorized = (reqUser: any, targetUnitId?: string) => {
+    if (!targetUnitId) return true;
+    if (!reqUser) return false;
+    const unitAccess = reqUser.unitAccess || [];
+    if (unitAccess.includes('*') || unitAccess.includes(targetUnitId) || reqUser.permissions?.includes('ALL_ACCESS') || reqUser.unitId === targetUnitId) {
+        return true;
+    }
+    return false;
+};
+
+const hasExplicitPermission = (reqUser: any, module: string, action: string) => {
+    const permissions = reqUser?.permissions || [];
+    return permissions.includes('ALL_ACCESS') || permissions.includes(`${module}_${action}`.toUpperCase());
+};
+
+const getAuthorizedPatient = async (client: any, req: any, patientId: string) => {
+    const patient = await client.patient.findFirst({
+        where: { id: patientId, tenantId: req.user.tenantId },
+        select: { id: true, tenantId: true, unitId: true }
+    });
+
+    if (!patient) {
+        const error: any = new Error('Patient not found');
+        error.status = 404;
+        throw error;
+    }
+    if (!isUnitAuthorized(req.user, patient.unitId)) {
+        const error: any = new Error('Not authorized for this patient unit');
+        error.status = 403;
+        throw error;
+    }
+    return patient;
+};
+
+const getAuthorizedAdmission = async (client: any, req: any, admissionId: string) => {
+    const admission = await client.admission.findFirst({
+        where: { id: admissionId, tenantId: req.user.tenantId },
+        select: { id: true, patientId: true, tenantId: true, unitId: true }
+    });
+
+    if (!admission) {
+        const error: any = new Error('Admission not found');
+        error.status = 404;
+        throw error;
+    }
+    if (!isUnitAuthorized(req.user, admission.unitId)) {
+        const error: any = new Error('Not authorized for this admission unit');
+        error.status = 403;
+        throw error;
+    }
+    return admission;
+};
 
 const router = Router();
 
@@ -23,11 +77,18 @@ const laundryStatusSchema = z.object({
 
 const maintenanceSchema = z.object({
     type: z.string().min(1),
-    status: z.string().min(1).optional().default('PENDING')
+    status: z.string().min(1).optional().default('PENDING'),
+    description: z.string().optional().nullable(),
+    vehicleId: z.string().optional().nullable(),
+    attachments: z.any().optional().nullable(),
+    resolvedBy: z.string().optional().nullable()
 });
 
 const maintenanceStatusSchema = z.object({
-    status: z.string().min(1)
+    status: z.string().min(1),
+    resolvedBy: z.string().optional().nullable(),
+    attachments: z.any().optional().nullable(),
+    description: z.string().optional().nullable()
 });
 
 const mealPrepSchema = z.object({
@@ -480,6 +541,10 @@ router.post('/maintenance', auth, enforceTenant, async (req: any, res: any) => {
             data: {
                 type: validated.type,
                 status: validated.status,
+                description: req.body.description || null,
+                vehicleId: req.body.vehicleId || null,
+                attachments: req.body.attachments || null,
+                resolvedBy: req.body.resolvedBy || null,
                 ...scope
             }
         });
@@ -506,9 +571,13 @@ router.patch('/maintenance/:id', auth, enforceTenant, async (req: any, res: any)
             return res.status(404).json({ success: false, message: 'Maintenance ticket not found' });
         }
 
+        const updateData: any = { status: validated.status };
+        if (req.body.resolvedBy !== undefined) updateData.resolvedBy = req.body.resolvedBy;
+        if (req.body.attachments !== undefined) updateData.attachments = req.body.attachments;
+        if (req.body.description !== undefined) updateData.description = req.body.description;
         const record = await (prisma as any).maintenance.update({
             where: { id: existing.id },
-            data: { status: validated.status }
+            data: updateData
         });
 
         res.json({ success: true, data: record, message: 'Maintenance status updated successfully' });
@@ -518,10 +587,14 @@ router.patch('/maintenance/:id', auth, enforceTenant, async (req: any, res: any)
 });
 
 // POST /patients - Patient Registration
-router.post('/patients', auth, enforceTenant, async (req: any, res: any) => {
+router.post('/patients', auth, enforceTenant, requirePermission('PATIENT', 'CREATE', true), async (req: any, res: any) => {
     try {
         const { name, dob, age, gender, bloodGroup, primaryContact, emergencyContact, email, phone, address, unitId } = req.body;
         
+        if (unitId && !isUnitAuthorized(req.user, unitId)) {
+            return res.status(403).json({ success: false, message: 'Not authorized for this facility' });
+        }
+
         if (!name) {
             return res.status(400).json({ success: false, message: 'Name is required' });
         }
@@ -554,10 +627,14 @@ router.post('/patients', auth, enforceTenant, async (req: any, res: any) => {
 });
 
 // GET /patients/:id
-router.get('/patients/:id', auth, enforceTenant, async (req: any, res: any) => {
+router.get('/patients/:id', auth, enforceTenant, requirePermission('PATIENT', 'READ', true), async (req: any, res: any) => {
     try {
-        const patient = await (prisma as any).patient.findUnique({
-            where: { id: req.params.id, tenantId: req.user.tenantId }
+        const patient = await (prisma as any).patient.findFirst({
+            where: {
+                id: req.params.id,
+                tenantId: req.user.tenantId,
+                unitId: req.context?.unitId || req.user.unitId
+            }
         });
         if (!patient) return res.status(404).json({ success: false, message: 'Patient not found' });
         res.json({ success: true, data: patient });
@@ -567,12 +644,21 @@ router.get('/patients/:id', auth, enforceTenant, async (req: any, res: any) => {
 });
 
 // PUT /patients/:id
-router.put('/patients/:id', auth, enforceTenant, async (req: any, res: any) => {
+router.put('/patients/:id', auth, enforceTenant, requirePermission('PATIENT', 'UPDATE', true), async (req: any, res: any) => {
     try {
         const { name, dob, age, gender, bloodGroup, primaryContact, emergencyContact, email, phone, address, unitId } = req.body;
+        const activeUnitId = req.context?.unitId || req.user.unitId;
         
-        const existing = await (prisma as any).patient.findUnique({
-            where: { id: req.params.id, tenantId: req.user.tenantId }
+        if (unitId && !isUnitAuthorized(req.user, unitId)) {
+            return res.status(403).json({ success: false, message: 'Not authorized for this facility' });
+        }
+
+        const existing = await (prisma as any).patient.findFirst({
+            where: {
+                id: req.params.id,
+                tenantId: req.user.tenantId,
+                unitId: activeUnitId
+            }
         });
         if (!existing) return res.status(404).json({ success: false, message: 'Patient not found' });
 
@@ -580,7 +666,7 @@ router.put('/patients/:id', auth, enforceTenant, async (req: any, res: any) => {
             where: { id: req.params.id },
             data: {
                 name, dob, age: age ? parseInt(age) : null, gender, bloodGroup, primaryContact, emergencyContact, email, phone, address,
-                unitId: unitId || existing.unitId
+                unitId: unitId || activeUnitId
             }
         });
 
@@ -592,13 +678,24 @@ router.put('/patients/:id', auth, enforceTenant, async (req: any, res: any) => {
 
 
 // POST /admissions - Admission
-router.post('/admissions', auth, enforceTenant, async (req: any, res: any) => {
+router.post('/admissions', auth, enforceTenant, requirePermission('ADMISSION', 'CREATE'), async (req: any, res: any) => {
     try {
-        console.log('ADMISSION PAYLOAD:', req.body);
-        const { enquiryId, patientId, admissionPriority, healthCondition, clinicalStatus, floor, room, bed, unitId } = req.body;
+        const { enquiryId, patientId, admissionPriority, healthCondition, clinicalStatus, floor, room, bed, unitId, consent } = req.body;
         
+        if (unitId && !isUnitAuthorized(req.user, unitId)) {
+            return res.status(403).json({ success: false, message: 'Not authorized for this facility' });
+        }
+
         if (!patientId) {
             return res.status(400).json({ success: false, message: 'Patient ID is required' });
+        }
+
+        if (consent?.acknowledged && !hasExplicitPermission(req.user, 'PATIENT', 'UPDATE')) {
+            return res.status(403).json({ success: false, message: 'PATIENT_UPDATE permission is required to record consent' });
+        }
+
+        if (consent?.acknowledged && !String(consent.signedByName || '').trim()) {
+            return res.status(400).json({ success: false, message: 'signedByName is required when consent is acknowledged' });
         }
 
         let actualEnquiryId = enquiryId;
@@ -615,31 +712,74 @@ router.post('/admissions', auth, enforceTenant, async (req: any, res: any) => {
             }
         }
 
-        const newAdmission = await (prisma as any).admission.create({
-            data: {
-                ...(actualEnquiryId ? { enquiryId: actualEnquiryId } : {}),
-                patientId, admissionPriority, healthCondition, clinicalStatus, floor, room, bed,
-                unitId: unitId || req.context?.unitId || req.user.unitId,
-                tenantId: req.user.tenantId,
-                status: 'ACTIVE'
+        const requestedUnitId = unitId || req.context?.unitId || req.user.unitId;
+        const newAdmission = await (prisma as any).$transaction(async (tx: any) => {
+            const patient = await getAuthorizedPatient(tx, req, patientId);
+            if (patient.unitId !== requestedUnitId) {
+                const error: any = new Error('Patient does not belong to the selected facility');
+                error.status = 403;
+                throw error;
             }
-        });
 
-        // Automatically create a Clinical Care Allocation
-        const allocationRef = await generateRefNumber('ALC', req.user.tenantId, newAdmission.unitId, prisma);
-        await (prisma as any).allocation.create({
-            data: {
-                refNo: allocationRef,
-                ...(actualEnquiryId ? { enquiryId: actualEnquiryId } : {}),
-                admissionId: newAdmission.id,
-                type: 'CLINICAL',
-                status: 'ALLOCATED',
-                tenantId: req.user.tenantId,
-                unitId: newAdmission.unitId,
-                metadata: {
-                    handoffSource: 'ADMISSION_SYSTEM'
+            const admission = await tx.admission.create({
+                data: {
+                    ...(actualEnquiryId ? { enquiryId: actualEnquiryId } : {}),
+                    patientId, admissionPriority, healthCondition, clinicalStatus, floor, room, bed,
+                    unitId: patient.unitId,
+                    tenantId: req.user.tenantId,
+                    status: 'ACTIVE'
                 }
+            });
+
+            const allocationRef = await generateRefNumber('ALC', req.user.tenantId, admission.unitId, tx);
+            await tx.allocation.create({
+                data: {
+                    refNo: allocationRef,
+                    ...(actualEnquiryId ? { enquiryId: actualEnquiryId } : {}),
+                    admissionId: admission.id,
+                    type: 'CLINICAL',
+                    status: 'ALLOCATED',
+                    tenantId: req.user.tenantId,
+                    unitId: admission.unitId,
+                    metadata: { handoffSource: 'ADMISSION_SYSTEM' }
+                }
+            });
+
+            if (consent?.acknowledged) {
+                const consentType = String(consent.consentType || 'ADMISSION');
+                const version = String(consent.version || '1.0');
+                const existing = await tx.residentConsent.findFirst({
+                    where: { patientId, consentType, version },
+                    select: { id: true }
+                });
+                if (existing) {
+                    const error: any = new Error('A consent with this version already exists; create a new version instead');
+                    error.status = 409;
+                    throw error;
+                }
+
+                await tx.residentConsent.create({
+                    data: {
+                        patientId,
+                        admissionId: admission.id,
+                        consentType,
+                        title: String(consent.title || 'Resident Admission Consent'),
+                        version,
+                        content: consent.content ? String(consent.content) : null,
+                        signedByName: String(consent.signedByName).trim(),
+                        signerRelation: String(consent.signerRelation || 'SELF'),
+                        signatureUrl: consent.signatureUrl ? String(consent.signatureUrl) : null,
+                        notes: consent.notes ? String(consent.notes) : null,
+                        ipAddress: typeof req.ip === 'string' ? req.ip : null,
+                        userAgent: req.headers['user-agent'] ? String(req.headers['user-agent']) : null,
+                        tenantId: req.user.tenantId,
+                        unitId: patient.unitId,
+                        createdById: req.user.id
+                    }
+                });
             }
+
+            return admission;
         });
 
         res.status(201).json({ success: true, data: newAdmission });
@@ -661,25 +801,244 @@ router.post('/admissions/:id/discharge', auth, enforceTenant, async (req: any, r
     });
 });
 
-// GET /admissions - List all active admissions
-router.get('/admissions', auth, enforceTenant, async (req: any, res: any) => {
+// GET /admissions - List admissions (defaults to active, supports ?status=DISCHARGED, ?includeDischarged=true, search, pagination)
+router.get('/admissions', auth, enforceTenant, requirePermission('ADMISSION', 'READ'), async (req: any, res: any) => {
     try {
+        const { status, includeDischarged, search, q, allUnits, page, limit } = req.query;
+        const requestedUnitId = (req.headers['x-unit-id'] as string) || req.context?.unitId || req.user.unitId;
+
+        if (requestedUnitId && !isUnitAuthorized(req.user, requestedUnitId)) {
+            return res.status(403).json({ success: false, message: 'Not authorized for this facility' });
+        }
+
+        const where: any = {
+            tenantId: req.user.tenantId
+        };
+
+        // Unit scoping: if allUnits is explicitly requested and authorized for all, omit unitId; otherwise scope to target unit
+        if (!(allUnits === 'true' && isUnitAuthorized(req.user, '*'))) {
+            if (requestedUnitId) {
+                where.unitId = requestedUnitId;
+            }
+        }
+
+        // Status filtering:
+        // Default behavior (no param): { not: 'DISCHARGED' } -> Preserves active-inpatient register completely
+        const statusUpper = typeof status === 'string' ? status.trim().toUpperCase() : undefined;
+        if (statusUpper === 'DISCHARGED') {
+            where.status = 'DISCHARGED';
+        } else if (statusUpper === 'ALL' || includeDischarged === 'true') {
+            // Include all statuses without restriction
+        } else if (statusUpper) {
+            where.status = statusUpper;
+        } else {
+            where.status = { not: 'DISCHARGED' };
+        }
+
+        // Search filtering (resident name, elder ID, phone, room, bed)
+        const searchTerm = String(search || q || '').trim();
+        if (searchTerm) {
+            where.OR = [
+                { patient: { name: { contains: searchTerm, mode: 'insensitive' } } },
+                { patient: { elderId: { contains: searchTerm, mode: 'insensitive' } } },
+                { patient: { phone: { contains: searchTerm } } },
+                { room: { contains: searchTerm, mode: 'insensitive' } },
+                { bed: { contains: searchTerm, mode: 'insensitive' } }
+            ];
+        }
+
+        const orderBy = where.status === 'DISCHARGED'
+            ? [{ dischargedAt: 'desc' }, { updatedAt: 'desc' }]
+            : [{ admittedAt: 'desc' }];
+
+        const include = {
+            patient: {
+                select: {
+                    id: true,
+                    name: true,
+                    elderId: true,
+                    phone: true,
+                    age: true,
+                    gender: true,
+                    bloodGroup: true,
+                    emergencyContact: true
+                }
+            },
+            serviceClosure: {
+                select: {
+                    id: true,
+                    status: true,
+                    closingRemarks: true,
+                    medicalCleared: true,
+                    medicalClearedAt: true,
+                    financeCleared: true,
+                    financeClearedAt: true,
+                    assetCleared: true,
+                    assetClearedAt: true,
+                    updatedAt: true
+                }
+            }
+        };
+
+        // Optional pagination
+        if (page || limit) {
+            const pageNum = Math.max(1, parseInt(page, 10) || 1);
+            const limitNum = Math.max(1, Math.min(100, parseInt(limit, 10) || 20));
+            const skip = (pageNum - 1) * limitNum;
+
+            const [total, admissions] = await Promise.all([
+                (prisma as any).admission.count({ where }),
+                (prisma as any).admission.findMany({
+                    where,
+                    include,
+                    orderBy,
+                    skip,
+                    take: limitNum
+                })
+            ]);
+
+            return res.json({
+                success: true,
+                data: admissions,
+                pagination: {
+                    page: pageNum,
+                    limit: limitNum,
+                    total,
+                    totalPages: Math.ceil(total / limitNum)
+                }
+            });
+        }
+
         const admissions = await (prisma as any).admission.findMany({
-            where: { 
-                tenantId: req.user.tenantId,
-                unitId: req.context?.unitId || req.user.unitId,
-                status: { not: 'DISCHARGED' } 
-            },
-            include: {
-                patient: { select: { name: true, phone: true } }
-            },
-            orderBy: { admittedAt: 'desc' }
+            where,
+            include,
+            orderBy
         });
+
         res.json({ success: true, data: admissions });
+    } catch (error: any) {
+        console.error("ADMISSIONS FETCH ERROR:", error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// POST /consents - Record/Sign Resident Consent
+router.post('/consents', auth, enforceTenant, requirePermission('PATIENT', 'UPDATE', true), async (req: any, res: any) => {
+    try {
+        const { 
+            patientId, 
+            admissionId, 
+            consentType = 'ADMISSION', 
+            title = 'Resident Admission Consent', 
+            version = '1.0', 
+            content, 
+            signedByName, 
+            signerRelation = 'SELF' 
+        } = req.body;
+
+        if (!patientId || !signedByName) {
+            return res.status(400).json({ success: false, message: 'patientId and signedByName are required' });
+        }
+
+        const patient = await getAuthorizedPatient(prisma as any, req, patientId);
+        if (admissionId) {
+            const admission = await getAuthorizedAdmission(prisma as any, req, admissionId);
+            if (admission.patientId !== patient.id || admission.unitId !== patient.unitId) {
+                return res.status(403).json({ success: false, message: 'Admission does not belong to this patient unit' });
+            }
+        }
+
+        const existing = await (prisma as any).residentConsent.findFirst({
+            where: { patientId, consentType, version },
+            select: { id: true }
+        });
+        if (existing) {
+            return res.status(409).json({ success: false, message: 'A consent with this version already exists; create a new version instead' });
+        }
+
+        const newConsent = await (prisma as any).residentConsent.create({
+            data: {
+                patientId,
+                admissionId: admissionId || null,
+                consentType,
+                title,
+                version,
+                content: content || null,
+                signedByName,
+                signerRelation,
+                signedAt: new Date(),
+                signatureUrl: req.body.signatureUrl ? String(req.body.signatureUrl) : null,
+                notes: req.body.notes ? String(req.body.notes) : null,
+                ipAddress: typeof req.ip === 'string' ? req.ip : null,
+                userAgent: req.headers['user-agent'] ? String(req.headers['user-agent']) : null,
+                status: 'SIGNED',
+                tenantId: req.user.tenantId,
+                unitId: patient.unitId,
+                createdById: req.user.id
+            }
+        });
+
+        res.status(201).json({ success: true, data: newConsent, message: 'Resident consent recorded successfully' });
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message || 'Failed to record consent' });
+    }
+});
+
+// GET /consents - List consent records
+router.get('/consents', auth, enforceTenant, requirePermission('PATIENT', 'READ', true), async (req: any, res: any) => {
+    try {
+        const { patientId, admissionId, consentType } = req.query;
+        const tenantId = req.user.tenantId;
+
+        if (patientId) await getAuthorizedPatient(prisma as any, req, String(patientId));
+        if (admissionId) await getAuthorizedAdmission(prisma as any, req, String(admissionId));
+
+        const where: any = { tenantId, isDeleted: false };
+        if (patientId) where.patientId = String(patientId);
+        if (admissionId) where.admissionId = String(admissionId);
+        if (consentType) where.consentType = String(consentType);
+
+        const consents = await (prisma as any).residentConsent.findMany({
+            where,
+            include: { patient: { select: { unitId: true } }, admission: { select: { unitId: true } } },
+            orderBy: { signedAt: 'desc' }
+        });
+        const authorizedConsents = consents
+            .filter((consent: any) => isUnitAuthorized(req.user, consent.patient?.unitId) && (!consent.admission || isUnitAuthorized(req.user, consent.admission.unitId)))
+            .map(({ patient, admission, ...consent }: any) => consent);
+
+        res.json({ success: true, data: authorizedConsents });
     } catch (error: any) {
         res.status(500).json({ success: false, message: error.message });
     }
 });
+
+// GET /consents/:id - Get specific consent details
+router.get('/consents/:id', auth, enforceTenant, requirePermission('PATIENT', 'READ', true), async (req: any, res: any) => {
+    try {
+        const { id } = req.params;
+        const tenantId = req.user.tenantId;
+
+        const consent = await (prisma as any).residentConsent.findFirst({
+            where: { id, tenantId, isDeleted: false },
+            include: { patient: { select: { unitId: true } }, admission: { select: { patientId: true, unitId: true } } }
+        });
+
+        if (!consent) {
+            return res.status(404).json({ success: false, message: 'Consent record not found' });
+        }
+
+        if (!isUnitAuthorized(req.user, consent.patient.unitId) || (consent.admission && (!isUnitAuthorized(req.user, consent.admission.unitId) || consent.admission.patientId !== consent.patientId))) {
+            return res.status(403).json({ success: false, message: 'Not authorized for this consent unit' });
+        }
+
+        const { patient, admission, ...data } = consent;
+        res.json({ success: true, data });
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 export default router;
 
 

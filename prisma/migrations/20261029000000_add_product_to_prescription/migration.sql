@@ -1,0 +1,1 @@
+ALTER TABLE "Prescription" ADD COLUMN "productId" TEXT; ALTER TABLE "Prescription" ADD CONSTRAINT "Prescription_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE SET NULL ON UPDATE CASCADE;

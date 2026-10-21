@@ -271,6 +271,7 @@ const resolvePayrollSnapshot = (staff, monthRange) => {
     const payrollMeta = metadata.payroll && typeof metadata.payroll === 'object' ? metadata.payroll : {};
     const relationalLogs = Array.isArray(staff.attendanceLogs) ? staff.attendanceLogs : [];
     const relationalLeaveRequests = Array.isArray(staff.leaveRequests) ? staff.leaveRequests : [];
+    const payrollRecord = Array.isArray(staff.payrollRecords) && staff.payrollRecords.length > 0 ? staff.payrollRecords[0] : null;
     
     const combinedLeaveRequestsMap = new Map();
     relationalLeaveRequests.forEach(req => combinedLeaveRequestsMap.set(req.id, {
@@ -299,14 +300,46 @@ const resolvePayrollSnapshot = (staff, monthRange) => {
 
     const workingDaysRaw = Number(payrollMeta.workingDays);
     const workingDays = !Number.isNaN(workingDaysRaw) && workingDaysRaw > 0 ? workingDaysRaw : 22;
-    const leaveDays = calculateApprovedLeaveDays(leaveRequests, monthRange);
-    const absentDays = Math.max(0, workingDays - presentDays - leaveDays);
+    const approvedLeaveDays = calculateApprovedLeaveDays(leaveRequests, monthRange);
+    const absentDays = Math.max(0, workingDays - presentDays - approvedLeaveDays);
+
+    // Salary resolution: from staff.salary OR staff.metadata.payroll OR sensible baseline
+    const baseSalary = Number(staff.salary?.monthlySalary || payrollMeta.monthlySalary || payrollMeta.salary || 30000);
+    const fixedAllowance = Number(staff.salary?.fixedAllowance || payrollMeta.fixedAllowance || payrollMeta.allowance || 2000);
+    const fixedDeduction = Number(staff.salary?.fixedDeduction || payrollMeta.fixedDeduction || payrollMeta.deduction || 1000);
+
+    // Pro-rated calculation based on present & approved leave days vs total working days
+    const payableDays = Math.min(workingDays, presentDays + approvedLeaveDays);
+    const proRatedBase = workingDays > 0 ? Math.round((baseSalary / workingDays) * payableDays) : baseSalary;
+    const grossPay = proRatedBase + fixedAllowance;
+    const unapprovedAbsenceDeduction = workingDays > 0 ? Math.round((baseSalary / workingDays) * absentDays) : 0;
+    const totalDeductions = fixedDeduction + unapprovedAbsenceDeduction;
+    const netPay = Math.max(0, grossPay - totalDeductions);
+
+    const name = `${staff.firstName || ''} ${staff.lastName || ''}`.trim() || 'Staff Member';
 
     return {
+        id: payrollRecord?.id || `preview-${staff.id}-${monthRange.month}`,
+        staffId: staff.id,
+        empId: staff.empId || '',
+        name,
+        role: staff.designation || 'Staff',
+        department: staff.department || 'General',
+        month: monthRange.month,
         workingDays,
         presentDays,
-        leaveDays,
-        absentDays
+        approvedLeaveDays,
+        leaveDays: approvedLeaveDays,
+        absentDays,
+        baseSalary,
+        fixedAllowance,
+        fixedDeduction,
+        grossPay,
+        deductions: totalDeductions,
+        netPay,
+        status: payrollRecord?.status || 'Pending Audit',
+        processedAt: payrollRecord?.processedAt || null,
+        processedBy: payrollRecord?.processedBy || null
     };
 };
 
@@ -696,19 +729,19 @@ export const getRoles = async (tenantId) => {
         { name: 'CMS Manager', description: 'UNCF content manager' },
         { name: 'Admin Files Manager', description: 'UNCF admin files manager' },
         { name: 'Profile Task User', description: 'UNCF profile and task user' },
+        { name: 'Inventory Manager', description: 'UNCF inventory manager' },
         { name: 'Family Member', description: 'Client and family member portal access' },
         { name: 'Client Family Member', description: 'Family access to client services, feedback, and complaints' },
         { name: 'Elder Care Admin', description: 'UEC organization administrator' },
         { name: 'In-House Care Manager', description: 'UEC in-house care manager' },
         { name: 'Elder Operations Manager', description: 'UEC operations manager' },
-        { name: 'Elder Inventory Manager', description: 'UEC inventory manager' },
         { name: 'Task Log Coordinator', description: 'UEC task log coordinator' },
         { name: 'Elder Finance Manager', description: 'UEC finance manager' },
         { name: 'UHC Admin', description: 'UHC organization administrator' },
         { name: 'Patient Care Manager', description: 'UHC patient care manager' },
         { name: 'Medical Monitor Coordinator', description: 'UHC medical monitoring coordinator' },
         { name: 'Care Allocation Manager', description: 'UHC care allocation manager' },
-        { name: 'Medical Inventory Manager', description: 'UHC medical inventory manager' },
+        { name: 'HOME_CARE_MANAGER', description: 'Manager of Home Care Operations' },
         { name: 'UA Admin', description: 'UA organization administrator' },
         { name: 'Ambulance Booking Coordinator', description: 'UA ambulance booking coordinator' },
         { name: 'Dispatch Manager', description: 'UA dispatch manager' },
@@ -723,32 +756,44 @@ export const getRoles = async (tenantId) => {
         { name: 'Admissions Coordinator', description: 'UEO admissions coordinator' }
     ];
 
-    for (const role of defaultRoles) {
-        await prisma.role.upsert({
-            where: {
-                name_tenantId: {
+    const existingRoles = await prisma.role.findMany({
+        where: { tenantId, isDeleted: false },
+        select: { id: true, name: true }
+    });
+
+    const existingNames = new Set(existingRoles.map((r) => r.name.toLowerCase()));
+    const missingRoles = defaultRoles.filter((r) => !existingNames.has(r.name.toLowerCase()));
+
+    if (missingRoles.length > 0) {
+        for (const role of missingRoles) {
+            await prisma.role.upsert({
+                where: {
+                    name_tenantId: {
+                        name: role.name,
+                        tenantId
+                    }
+                },
+                update: {
+                    isDeleted: false,
+                    deletedAt: null,
+                    description: role.description
+                },
+                create: {
                     name: role.name,
+                    description: role.description,
                     tenantId
                 }
-            },
-            update: {
-                isDeleted: false,
-                deletedAt: null,
-                description: role.description
-            },
-            create: {
-                name: role.name,
-                description: role.description,
-                tenantId
-            }
+            });
+        }
+
+        return prisma.role.findMany({
+            where: { tenantId, isDeleted: false },
+            select: { id: true, name: true },
+            orderBy: { name: 'asc' }
         });
     }
 
-    return prisma.role.findMany({
-        where: { tenantId, isDeleted: false },
-        select: { id: true, name: true },
-        orderBy: { name: 'asc' }
-    });
+    return existingRoles.sort((a, b) => a.name.localeCompare(b.name));
 };
 
 export const getStaffPerformance = async (tenantId, unitId) => {
@@ -1273,7 +1318,7 @@ export const createLeaveRequest = async (tenantId, unitId, data, requestedBy) =>
     }
 
     const staff = await prisma.staff.findFirst({
-        where: { id: data.staffId, tenantId, unitId, isDeleted: false },
+        where: { id: data.staffId, tenantId, isDeleted: false },
         select: { id: true, empId: true, firstName: true, lastName: true, designation: true, department: true, unitId: true }
     });
 
@@ -1554,37 +1599,86 @@ const getDocumentTracker = async (tenantId, unitId, user) => {
 };
 export { hasConfiguredMenuPrivilege, uploadStaffDocumentRelational, getStaffDocuments, getDocumentTracker };
 
+const mapCandidate = (c) => {
+    const details = (c.details && typeof c.details === 'object') ? c.details : {};
+    return {
+        id: c.id,
+        serialNo: c.serialNo,
+        name: c.name,
+        phone: c.mobileNo,
+        mobileNo: c.mobileNo,
+        email: details.email || '',
+        designationApplied: c.preferredRole || 'Staff',
+        preferredRole: c.preferredRole || 'Staff',
+        department: details.department || 'General',
+        status: (c.stage || 'APPLIED').toUpperCase(),
+        stage: (c.stage || 'APPLIED').toUpperCase(),
+        expectedSalary: typeof details.expectedSalary === 'number' ? details.expectedSalary : 25000,
+        experienceYears: typeof details.experienceYears === 'number' ? details.experienceYears : 0,
+        createdAt: c.createdAt ? c.createdAt.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10)
+    };
+};
+
 export const getCandidates = async (tenantId, unitId) => {
-    return await prisma.candidate.findMany({
-        where: { tenantId, unitId },
+    const list = await prisma.candidate.findMany({
+        where: { tenantId, ...(unitId && unitId !== 'ALL_UNITS' ? { unitId } : {}) },
         orderBy: { createdAt: 'desc' },
         include: { interviews: true }
     });
+    return list.map(mapCandidate);
 };
 
 export const createCandidate = async (tenantId, unitId, data) => {
-    if (data.termsAccepted) {
-        data.termsAcceptedAt = new Date();
-        data.termsVersion = CURRENT_TERMS_VERSION;
-    }
-    delete data.termsAccepted;
+    const details = {
+        ...(typeof data.details === 'object' ? data.details : {}),
+        email: data.email || undefined,
+        department: data.department || undefined,
+        experienceYears: data.experienceYears !== undefined ? Number(data.experienceYears) : undefined,
+        expectedSalary: data.expectedSalary !== undefined ? Number(data.expectedSalary) : undefined
+    };
 
-    return await prisma.candidate.create({
-        data: { id: crypto.randomUUID(), updatedAt: new Date(), ...data, tenantId, unitId, serialNo: data.serialNo || 'CAN-' + Date.now() }
+    const candidateId = crypto.randomUUID();
+    const candidate = await prisma.candidate.create({
+        data: {
+            id: candidateId,
+            serialNo: data.serialNo || 'CAN-' + Date.now(),
+            name: data.name,
+            mobileNo: data.mobileNo || data.phone || '',
+            sourceAgent: data.sourceAgent || 'Direct',
+            preferredRole: data.preferredRole || data.designationApplied || null,
+            stage: (data.stage || data.status || 'APPLIED').toUpperCase(),
+            isPlaced: false,
+            details,
+            tenantId,
+            unitId: unitId || data.unitId || null,
+            updatedAt: new Date()
+        }
     });
+
+    return mapCandidate(candidate);
 };
 
 export const updateCandidate = async (tenantId, unitId, id, data) => {
-    if (data.termsAccepted) {
-        data.termsAcceptedAt = new Date();
-        data.termsVersion = CURRENT_TERMS_VERSION;
-    }
-    delete data.termsAccepted;
-    
-    return await prisma.candidate.update({
-        where: { id, tenantId, unitId },
-        data
+    const candidate = await prisma.candidate.findFirst({
+        where: { id, tenantId }
     });
+    if (!candidate) throw buildHttpError('Candidate not found', 404);
+    
+    const updateData = {};
+    if (data.stage || data.status) {
+        updateData.stage = (data.stage || data.status).toUpperCase();
+    }
+    if (data.isPlaced !== undefined) updateData.isPlaced = data.isPlaced;
+    if (data.name) updateData.name = data.name;
+    if (data.mobileNo || data.phone) updateData.mobileNo = data.mobileNo || data.phone;
+    if (data.preferredRole || data.designationApplied) updateData.preferredRole = data.preferredRole || data.designationApplied;
+    
+    const updated = await prisma.candidate.update({
+        where: { id },
+        data: { ...updateData, updatedAt: new Date() }
+    });
+
+    return mapCandidate(updated);
 };
 
 export const placeCandidate = async (tenantId, unitId, id, data) => {
@@ -1673,3 +1767,370 @@ export const convertJobApplication = async (tenantId, unitId, id) => {
     });
 };
 
+
+export const provisionStaffAccount = async (tenantId, unitId, staffId, data, actingUser) => {
+    const normalizedRole = String(actingUser?.role || '').trim().toLowerCase().replace(/_/g, ' ');
+    const canProvision = ['admin', 'super admin', 'superadmin', 'hr manager'].includes(normalizedRole);
+    
+    if (!canProvision) {
+        throw buildHttpError('Unauthorized: You do not have permission to provision accounts', 403);
+    }
+
+    const staff = await prisma.staff.findFirst({
+        where: { id: staffId, tenantId, isDeleted: false }
+    });
+
+    if (!staff) {
+        throw buildHttpError('Staff member not found', 404);
+    }
+
+    if (unitId && staff.unitId && staff.unitId !== unitId && !['admin', 'super admin', 'superadmin'].includes(normalizedRole)) {
+        throw buildHttpError('Unauthorized: Staff belongs to a different unit scope', 403);
+    }
+
+    if (staff.userId) {
+        throw buildHttpError('Staff member is already linked to a user account', 409);
+    }
+
+    if (!staff.email) {
+        throw buildHttpError('Staff member must have a valid email to receive application access', 400);
+    }
+
+    const empIdStr = String(staff.empId).toUpperCase();
+    if (empIdStr.startsWith('SEED-') || empIdStr.startsWith('DEMO-')) {
+        throw buildHttpError('Provisioning demo/seed staff accounts is strictly forbidden', 403);
+    }
+
+    if (staff.status === 'Resigned' || staff.status === 'Terminated') {
+        throw buildHttpError('Cannot provision an account for inactive staff', 400);
+    }
+
+    const role = await prisma.role.findFirst({
+        where: { tenantId, isDeleted: false, OR: [{ id: data.roleId }, { name: data.roleId }] }
+    });
+
+    if (!role) {
+        throw buildHttpError('Invalid role selected', 400);
+    }
+
+    const normalizedTargetRole = String(role.name || '').trim().toLowerCase().replace(/_/g, ' ');
+    if (normalizedRole === 'hr manager') {
+        const HR_BLOCKED_ROLES = ['super admin', 'superadmin', 'admin', 'administrative'];
+        if (HR_BLOCKED_ROLES.includes(normalizedTargetRole)) {
+            const { logAudit } = await import('../audit/service.js');
+            await logAudit({
+                userId: actingUser.id,
+                module: 'HR',
+                action: 'PROVISIONING_DENIED',
+                payload: { reason: 'Unauthorized target role for HR Manager', requestedRole: role.name, staffId: staff.id },
+                tenantId: tenantId,
+                unitId: unitId
+            }).catch(console.error);
+            throw buildHttpError('HR Manager is not authorized to provision this role.', 403);
+        }
+    }
+
+    const existingUser = await prisma.user.findFirst({
+        where: { email: { equals: staff.email, mode: 'insensitive' }, isDeleted: false }
+    });
+
+    if (existingUser) {
+        throw buildHttpError('Email is already in use by another user account', 409);
+    }
+
+    const isHrTemporary = data.passwordMethod === 'HR_TEMPORARY';
+
+    if (isHrTemporary) {
+        const tempPlainPassword = crypto.randomBytes(8).toString('hex');
+        const tempPasswordHash = await bcrypt.hash(tempPlainPassword, 10);
+        
+        const result = await prisma.$transaction(async (tx) => {
+            const newUser = await tx.user.create({
+                data: {
+                    email: staff.email,
+                    passwordHash: tempPasswordHash,
+                    mustChangePassword: true,
+                    firstName: staff.firstName,
+                    lastName: staff.lastName || null,
+                    mobile: staff.phone || null,
+                    roleId: role.id,
+                    tenantId: staff.tenantId,
+                    unitId: staff.unitId || unitId,
+                    isActive: true
+                }
+            });
+
+            await tx.staff.update({
+                where: { id: staff.id },
+                data: { userId: newUser.id }
+            });
+
+            return newUser;
+        });
+
+        const { logAudit } = await import('../audit/service.js');
+        await logAudit({
+            userId: result.id,
+            actingUserId: actingUser.id,
+            module: 'HR',
+            action: 'STAFF_ACCOUNT_CREATED',
+            tenantId: result.tenantId,
+            unitId: result.unitId
+        }).catch(console.error);
+
+        await logAudit({
+            userId: result.id,
+            actingUserId: actingUser.id,
+            module: 'HR',
+            action: 'STAFF_ACCOUNT_LINKED',
+            tenantId: result.tenantId,
+            unitId: result.unitId
+        }).catch(console.error);
+
+        await logAudit({
+            userId: result.id,
+            actingUserId: actingUser.id,
+            module: 'HR',
+            action: 'TEMPORARY_PASSWORD_ISSUED',
+            tenantId: result.tenantId,
+            unitId: result.unitId
+        }).catch(console.error);
+
+        return { staffId: staff.id, userId: result.id, mustChangePassword: true, temporaryPassword: tempPlainPassword };
+    }
+
+    const rawSecret = crypto.randomBytes(32).toString('hex');
+    const tempPasswordHash = await bcrypt.hash(rawSecret, 10);
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    const result = await prisma.$transaction(async (tx) => {
+        const newUser = await tx.user.create({
+            data: {
+                email: staff.email,
+                passwordHash: tempPasswordHash,
+                mustChangePassword: false,
+                firstName: staff.firstName,
+                lastName: staff.lastName || null,
+                mobile: staff.phone || null,
+                roleId: role.id,
+                tenantId: staff.tenantId,
+                unitId: staff.unitId || unitId,
+                isActive: true
+            }
+        });
+
+        await tx.staff.update({
+            where: { id: staff.id },
+            data: { userId: newUser.id }
+        });
+
+        await tx.passwordResetToken.create({
+            data: {
+                userId: newUser.id,
+                tokenHash,
+                expiresAt
+            }
+        });
+
+        return newUser;
+    });
+
+    const baseUrl = process.env.BASE_URL || 'http://localhost:5173';
+    const activationUrl = `${baseUrl}/reset-password?token=${rawToken}`;
+    
+    const { sendEmail } = await import('../../shared/utils/email.js');
+    await sendEmail({
+        to: staff.email,
+        subject: 'Account Activation',
+        text: `Your account has been provisioned. Please use the following link to set up your password: ${activationUrl}\nThis link will expire in 24 hours.`,
+        html: `<p>Your account has been provisioned. Please click the link below to set up your password:</p><p><a href="${activationUrl}">${activationUrl}</a></p><p>This link will expire in 24 hours.</p>`
+    }).catch(err => console.error('[Provisioning] Activation email failed to send:', err.message));
+
+    const { logAudit } = await import('../audit/service.js');
+    await logAudit({
+        userId: result.id,
+        actingUserId: actingUser.id,
+        module: 'HR',
+        action: 'STAFF_ACCOUNT_CREATED',
+        tenantId: result.tenantId,
+        unitId: result.unitId
+    }).catch(console.error);
+
+    await logAudit({
+        userId: result.id,
+        actingUserId: actingUser.id,
+        module: 'HR',
+        action: 'STAFF_ACCOUNT_LINKED',
+        tenantId: result.tenantId,
+        unitId: result.unitId
+    }).catch(console.error);
+
+    return { staffId: staff.id, userId: result.id };
+};
+
+export const resetStaffPassword = async (tenantId, unitId, staffId, data, actingUser) => {
+    const normalizedRole = String(actingUser?.role || '').trim().toLowerCase().replace(/_/g, ' ');
+    const canProvision = ['admin', 'super admin', 'superadmin', 'hr manager'].includes(normalizedRole);
+    
+    if (!canProvision) {
+        throw buildHttpError('Unauthorized: You do not have permission to reset passwords', 403);
+    }
+
+    const staff = await prisma.staff.findFirst({
+        where: { id: staffId, tenantId, isDeleted: false },
+        include: { user: true }
+    });
+
+    if (!staff) {
+        throw buildHttpError('Staff member not found', 404);
+    }
+
+    if (unitId && staff.unitId && staff.unitId !== unitId && !['admin', 'super admin', 'superadmin'].includes(normalizedRole)) {
+        throw buildHttpError('Unauthorized: Staff belongs to a different unit scope', 403);
+    }
+
+    if (!staff.userId || !staff.user) {
+        throw buildHttpError('Staff member does not have a linked user account', 409);
+    }
+    
+    if (staff.user.tenantId !== tenantId) {
+        throw buildHttpError('Unauthorized: Cross-tenant target not allowed', 403);
+    }
+
+    if (staff.status === 'Resigned' || staff.status === 'Terminated' || !staff.user.isActive || staff.user.isDeleted) {
+        throw buildHttpError('Cannot reset password for inactive staff', 400);
+    }
+
+    const targetUserRole = await prisma.role.findUnique({ where: { id: staff.user.roleId } });
+    if (!targetUserRole) {
+        throw buildHttpError('Target user has an invalid role', 400);
+    }
+    
+    const normalizedTargetRole = String(targetUserRole.name || '').trim().toLowerCase().replace(/_/g, ' ');
+    if (normalizedRole === 'hr manager') {
+        const HR_BLOCKED_ROLES = ['super admin', 'superadmin', 'admin', 'administrative'];
+        if (HR_BLOCKED_ROLES.includes(normalizedTargetRole)) {
+            const { logAudit } = await import('../audit/service.js');
+            await logAudit({
+                userId: actingUser.id,
+                module: 'HR',
+                action: 'PASSWORD_RESET_DENIED',
+                payload: { reason: 'Unauthorized target role for HR Manager', requestedRole: targetUserRole.name, staffId: staff.id },
+                tenantId: tenantId,
+                unitId: unitId
+            }).catch(console.error);
+            throw buildHttpError('HR Manager is not authorized to reset passwords for this role.', 403);
+        }
+    }
+
+    const isHrTemporary = data.method === 'HR_TEMPORARY';
+    
+    if (isHrTemporary) {
+        if (!data.temporaryPassword) {
+            throw buildHttpError('Temporary password is required', 400);
+        }
+        
+        const bcrypt = await import('bcrypt');
+        const tempPlainPassword = data.temporaryPassword;
+        const tempPasswordHash = await bcrypt.hash(tempPlainPassword, 10);
+        
+        await prisma.user.update({
+            where: { id: staff.user.id },
+            data: {
+                passwordHash: tempPasswordHash,
+                mustChangePassword: true,
+                tokenVersion: { increment: 1 }
+            }
+        });
+
+        const { logAudit } = await import('../audit/service.js');
+        await logAudit({
+            userId: staff.user.id,
+            actingUserId: actingUser.id,
+            module: 'HR',
+            action: 'STAFF_TEMP_PASSWORD_ISSUED',
+            tenantId: staff.user.tenantId,
+            unitId: staff.user.unitId
+        }).catch(console.error);
+
+        return { message: 'Temporary password set successfully.' };
+    } else {
+        const { requestPasswordReset } = await import('../auth/service.js');
+        await requestPasswordReset(staff.user.email);
+        
+        const { logAudit } = await import('../audit/service.js');
+        await logAudit({
+            userId: staff.user.id,
+            actingUserId: actingUser.id,
+            module: 'HR',
+            action: 'STAFF_PASSWORD_RESET_LINK_SENT',
+            tenantId: staff.user.tenantId,
+            unitId: staff.user.unitId
+        }).catch(console.error);
+        
+        return { message: 'Password reset instructions have been sent.' };
+    }
+};
+
+export const recordStaffAttendance = async (tenantId, unitId, data) => {
+    const { staffId, date, checkIn, checkOut, status = 'Present', method = 'MANUAL', notes } = data;
+    const staff = await prisma.staff.findFirst({
+        where: { id: staffId, tenantId, isDeleted: false },
+        select: { id: true, unitId: true }
+    });
+    if (!staff) {
+        throw buildHttpError('Staff member not found', 404);
+    }
+
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { timezone: true } });
+    const targetDate = toDateOnly(date) || getFacilityDateString(tenant?.timezone);
+    const dateParts = targetDate.split('-');
+    const dateUTC = new Date(Date.UTC(Number(dateParts[0]), Number(dateParts[1]) - 1, Number(dateParts[2])));
+    const now = new Date();
+
+    let checkInDate = null;
+    if (checkIn) {
+        checkInDate = checkIn.includes('T') ? new Date(checkIn) : new Date(`${targetDate}T${checkIn.length === 5 ? checkIn + ':00' : checkIn}Z`);
+    }
+
+    let checkOutDate = null;
+    if (checkOut) {
+        checkOutDate = checkOut.includes('T') ? new Date(checkOut) : new Date(`${targetDate}T${checkOut.length === 5 ? checkOut + ':00' : checkOut}Z`);
+    }
+
+    const logMetadata = { note: notes || '' };
+
+    const log = await prisma.attendanceLog.upsert({
+        where: {
+            staffId_date: {
+                staffId: staff.id,
+                date: dateUTC
+            }
+        },
+        update: {
+            checkIn: checkInDate,
+            checkOut: checkOutDate,
+            status: status || 'Present',
+            method: method || 'MANUAL',
+            metadata: logMetadata,
+            updatedAt: now
+        },
+        create: {
+            staffId: staff.id,
+            date: dateUTC,
+            checkIn: checkInDate,
+            checkOut: checkOutDate,
+            status: status || 'Present',
+            method: method || 'MANUAL',
+            metadata: logMetadata,
+            tenantId,
+            unitId: staff.unitId || unitId || tenantId,
+            createdAt: now,
+            updatedAt: now
+        }
+    });
+
+    return log;
+};

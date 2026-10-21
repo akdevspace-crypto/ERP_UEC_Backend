@@ -28,7 +28,7 @@ export const handleCreateAllocation = async (req, res, next) => {
 export const handleGetHomeCareAllocations = async (req, res, next) => {
     try {
         const { tenantId, unitId } = getRequestScope(req);
-        const allocations = await getAllocationsByType(tenantId, unitId, 'HOME_CARE');
+        const allocations = await getAllocationsByType(tenantId, unitId, 'HOME_CARE', req.user);
         return success(res, allocations);
     } catch (error) {
         next(error);

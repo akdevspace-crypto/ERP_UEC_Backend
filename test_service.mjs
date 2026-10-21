@@ -1,1 +1,0 @@
-import { getClosures } from './src/modules/closure/service.js'; async function t() { try { const res = await getClosures({status: 'EXECUTED'}, {tenantId: 'f866c6e5-949b-4b6f-a137-0ba659918b34', unitId: 'd3bfe50c-edd5-4bd8-9d20-be37a84cdb2b'}); console.log('SUCCESS:', res.length); } catch (e) { console.error('ERROR:', e.message); } } t();

@@ -1,14 +1,18 @@
 import { prisma } from '../../app/prisma.js';
 import { generateRefNumber } from '../../shared/utils/refGenerator.js';
 
-const buildAllocationDutyDescription = (allocation, notes) => [
-    `Allocation:${allocation.id}`,
-    `Reference: ${allocation.refNo}`,
-    `Client: ${allocation.enquiry?.client?.name || 'Client pending'}`,
-    `Patient: ${allocation.metadata?.patientName || allocation.enquiry?.client?.name || 'Patient pending'}`,
-    `Care Type: ${allocation.type}`,
-    notes ? `Notes: ${notes}` : null
-].filter(Boolean).join('\n');
+const buildAllocationDutyDescription = (allocation, notes) => {
+    const clientName = allocation.enquiry?.client?.name || 'Client pending';
+    const patientName = allocation.admission?.patient?.name || allocation.enquiry?.admission?.patient?.name || allocation.metadata?.patientName || allocation.enquiry?.client?.name || 'Patient pending';
+    return [
+        `Allocation:${allocation.id}`,
+        `Reference: ${allocation.refNo}`,
+        `Client: ${clientName}`,
+        `Patient: ${patientName}`,
+        `Care Type: ${allocation.type}`,
+        notes ? `Notes: ${notes}` : null
+    ].filter(Boolean).join('\n');
+};
 
 const syncMedicalAssignment = async (allocation) => {
     if (!allocation?.staffId || allocation.status !== 'ALLOCATED') return;
@@ -26,9 +30,18 @@ const syncMedicalAssignment = async (allocation) => {
             where: { id: allocation.staffId, isDeleted: false }
         });
 
+        let resolvedPatientId = allocation.admission?.patientId || allocation.enquiry?.admission?.patientId || allocation.enquiry?.admission?.patient?.id || null;
+        if (!resolvedPatientId && allocation.enquiryId) {
+            const enquiry = await prisma.enquiry.findUnique({
+                where: { id: allocation.enquiryId },
+                include: { admission: true }
+            });
+            resolvedPatientId = enquiry?.admission?.patientId || null;
+        }
+
         const medData = {
             staffId: allocation.staffId,
-            patientId: allocation.admission?.patientId || allocation.enquiry?.admission?.patient?.id || null,
+            patientId: resolvedPatientId,
             admissionId: allocation.admissionId || null,
             enquiryId: allocation.enquiryId || null,
             allocationId: allocation.id,
@@ -83,7 +96,6 @@ const syncAllocationDutyTask = async (allocation) => {
         where: {
             id: allocation.staffId,
             tenantId: allocation.tenantId,
-            unitId: allocation.unitId,
             isDeleted: false
         },
         select: {
@@ -183,14 +195,13 @@ export const createAllocation = async (tenantId, unitId, data) => {
             where: {
                 id: data.staffId,
                 tenantId,
-                unitId: targetUnitId,
                 isDeleted: false
             },
-            select: { id: true }
+            select: { id: true, unitId: true }
         });
 
         if (!staff) {
-            const error = new Error('Selected staff not found in this unit');
+            const error = new Error('Selected staff not found in this organization');
             error.status = 404;
             throw error;
         }
@@ -263,6 +274,15 @@ export const createAllocation = async (tenantId, unitId, data) => {
                     lastName: true,
                     empId: true
                 }
+            },
+            admission: {
+                select: {
+                    id: true,
+                    patientId: true,
+                    patient: {
+                        select: { id: true, name: true }
+                    }
+                }
             }
         }
     }));
@@ -273,16 +293,25 @@ export const createAllocation = async (tenantId, unitId, data) => {
     return allocation;
 };
 
-export const getAllocationsByType = async (tenantId, unitId, type) => {
+export const getAllocationsByType = async (tenantId, unitId, type, user) => {
     const isDemoReference = (value) => {
         const normalized = String(value || '').toUpperCase();
         return normalized.startsWith('DEMO-') || normalized.startsWith('SEED-');
     };
 
+    const staff = user?.id ? await prisma.staff.findFirst({
+        where: { tenantId, userId: user.id, isDeleted: false },
+        select: { id: true }
+    }) : null;
+
+    const unitFilter = (unitId && unitId !== 'ALL')
+        ? (staff?.id ? { OR: [{ unitId }, { staffId: staff.id }] } : { unitId })
+        : {};
+
     const allocations = await prisma.allocation.findMany({
         where: {
             tenantId,
-            ...(unitId && unitId !== 'ALL' ? { unitId } : {}),
+            ...unitFilter,
             type,
             isDeleted: false
         },

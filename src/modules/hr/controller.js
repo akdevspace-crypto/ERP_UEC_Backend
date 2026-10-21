@@ -8,6 +8,7 @@ import {
     processPayroll,
     getMyAttendanceLogs,
     markMyAttendance,
+    recordStaffAttendance,
     updateStaff,
     updateStaffMenuPrivilege,
     deleteStaff,
@@ -37,7 +38,7 @@ import { z } from 'zod';
 import { success } from '../../shared/utils/response.js';
 import { staffSchema, jobApplicationSchema, staffMenuPrivilegeSchema, leaveRequestSchema, myLeaveRequestSchema, leaveActionSchema, attendanceActionSchema, processPayrollSchema, staffSalarySchema, candidateSchema, candidateUpdateSchema, interviewSchema, interviewUpdateSchema } from './schema.js';
 
-const normalizeStaffPayload = (body = {}) => {
+const normalizeStaffPayload = (body = {}, req = null) => {
     const normalized = { ...body };
 
     if (typeof normalized.metadata === 'string') {
@@ -48,12 +49,16 @@ const normalizeStaffPayload = (body = {}) => {
         }
     }
 
+    if (!normalized.unitId) {
+        normalized.unitId = req?.headers?.['x-unit-id'] || req?.context?.unitId || req?.user?.unitId || '5c83400d-d805-4f7a-9629-9e370d7f4618';
+    }
+
     return normalized;
 };
 
 export const handleCreateStaff = async (req, res, next) => {
     try {
-        const data = staffSchema.parse(normalizeStaffPayload(req.body));
+        const data = staffSchema.parse(normalizeStaffPayload(req.body, req));
         console.log('BODY UNIT:', req.body.unitId);
         const tenantId = req.context?.tenantId || req.user.tenantId;
         let staff = await createStaff(tenantId, data, req.files || {});
@@ -496,7 +501,11 @@ export const handleGetCandidates = async (req, res, next) => {
 
 export const handleCreateCandidate = async (req, res, next) => {
     try {
-        const data = candidateSchema.parse(req.body);
+        const parsed = candidateSchema.parse(req.body);
+        const data = {
+            ...parsed,
+            mobileNo: parsed.mobileNo || parsed.phone || 'N/A'
+        };
         const candidate = await createCandidate(req.context?.tenantId || req.user.tenantId, req.context?.unitId || req.user.unitId, data);
         return success(res, candidate, { message: 'Candidate created successfully' }, 201);
     } catch (error) {
@@ -565,6 +574,65 @@ export const handleConvertJobApplication = async (req, res, next) => {
     try {
         const candidate = await convertJobApplication(req.context?.tenantId || req.user.tenantId, req.context?.unitId || req.user.unitId, req.params.id);
         return success(res, candidate, { message: 'Job application converted to candidate successfully' }, 201);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const handleProvisionStaffAccount = async (req, res, next) => {
+    try {
+        const { provisionAccountSchema } = await import('./schema.js');
+        const data = provisionAccountSchema.parse(req.body);
+        const { provisionStaffAccount } = await import('./service.js');
+        
+        const tenantId = req.context?.tenantId || req.user.tenantId;
+        const unitId = req.context?.unitId || req.user.unitId;
+        const staffId = req.params.id;
+        
+        const result = await provisionStaffAccount(tenantId, unitId, staffId, data, req.user);
+        
+        // success is already available in controller.js
+        return res.status(201).json({
+            success: true,
+            message: 'Staff account provisioning initiated.',
+            data: result
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const handleResetStaffPassword = async (req, res, next) => {
+    try {
+        const { resetStaffPasswordSchema } = await import('./schema.js');
+        const data = resetStaffPasswordSchema.parse(req.body);
+        const { resetStaffPassword } = await import('./service.js');
+        
+        const tenantId = req.context?.tenantId || req.user.tenantId;
+        const unitId = req.context?.unitId || req.user.unitId;
+        const staffId = req.params.id;
+        
+        const result = await resetStaffPassword(tenantId, unitId, staffId, data, req.user);
+        
+        return res.status(200).json({
+            success: true,
+            message: result.message || 'Staff password reset initiated.',
+            method: data.method,
+            ...(result.temporaryPassword ? { temporaryPassword: result.temporaryPassword } : {})
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const handleRecordStaffAttendance = async (req, res, next) => {
+    try {
+        const log = await recordStaffAttendance(
+            req.context?.tenantId || req.user.tenantId,
+            req.context?.unitId || req.user.unitId,
+            req.body
+        );
+        return success(res, log, { message: 'Attendance record saved successfully' });
     } catch (error) {
         next(error);
     }

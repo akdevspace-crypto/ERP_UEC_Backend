@@ -37,7 +37,9 @@ async function main() {
             lastName: 'Manager',
             roleId: financeRole.id,
             tenantId: tenant.id,
-            unitId: unit.id
+            unitId: unit.id,
+            isDeleted: false,
+            isActive: true
         },
         create: {
             email: 'uec.finance@demo.erp',
@@ -46,7 +48,9 @@ async function main() {
             lastName: 'Manager',
             roleId: financeRole.id,
             tenantId: tenant.id,
-            unitId: unit.id
+            unitId: unit.id,
+            isDeleted: false,
+            isActive: true
         }
     });
 

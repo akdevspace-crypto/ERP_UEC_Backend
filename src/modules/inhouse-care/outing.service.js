@@ -3,7 +3,7 @@ import { prisma } from '../../app/prisma.js';
 export const createOutingRequest = async (tenantId, unitId, requestedByUserId, data) => {
     // Verify patient exists and belongs to tenant
     const patient = await prisma.patient.findFirst({
-        where: { id: data.patientId, tenantId }
+        where: { id: data.patientId, tenantId, unitId }
     });
 
     if (!patient) {
@@ -13,7 +13,7 @@ export const createOutingRequest = async (tenantId, unitId, requestedByUserId, d
     // Verify companion if provided
     if (data.companionType === 'STAFF' && data.companionStaffId) {
         const staff = await prisma.staff.findFirst({
-            where: { id: data.companionStaffId, tenantId, isDeleted: false }
+            where: { id: data.companionStaffId, tenantId, unitId, isDeleted: false }
         });
         if (!staff) throw new Error('Invalid companion staff');
     } else if (data.companionType === 'VISITOR' && data.companionVisitorProfileId) {
@@ -63,7 +63,7 @@ export const getOutingRequests = async (tenantId, unitId, filters = {}) => {
     return await prisma.residentOutingRequest.findMany({
         where: {
             tenantId,
-            ...(filters.unitId ? { unitId: filters.unitId } : {}),
+            unitId,
             isDeleted: false,
             ...(filters.patientId ? { patientId: filters.patientId } : {}),
             ...(filters.status ? { status: filters.status } : {})
@@ -81,9 +81,9 @@ export const getOutingRequests = async (tenantId, unitId, filters = {}) => {
     });
 };
 
-export const getOutingRequestById = async (tenantId, id) => {
+export const getOutingRequestById = async (tenantId, id, unitId) => {
     return await prisma.residentOutingRequest.findFirst({
-        where: { id, tenantId, isDeleted: false },
+        where: { id, tenantId, unitId, isDeleted: false },
         include: {
             patient: {
                 select: { id: true, name: true, elderId: true }
@@ -102,17 +102,17 @@ export const getOutingRequestById = async (tenantId, id) => {
     });
 };
 
-export const processOutingApproval = async (tenantId, requestId, approverId, action, comments) => {
+export const processOutingApproval = async (tenantId, requestId, approverId, action, comments, unitId) => {
     return await prisma.$transaction(async (tx) => {
         const request = await tx.residentOutingRequest.findFirst({
-            where: { id: requestId, tenantId, isDeleted: false }
+            where: { id: requestId, tenantId, unitId, isDeleted: false }
         });
 
         if (!request) throw new Error('Outing request not found');
         if (request.status !== 'PENDING_APPROVAL') throw new Error('Request is already processed');
 
         const approval = await tx.approval.findFirst({
-            where: { entityType: 'ResidentOutingRequest', entityId: requestId, tenantId, isDeleted: false }
+            where: { entityType: 'ResidentOutingRequest', entityId: requestId, tenantId, unitId, isDeleted: false }
         });
 
         if (!approval) throw new Error('Approval record not found');

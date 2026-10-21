@@ -466,13 +466,17 @@ export const listEnquiriesQuery = async ({ tenantId, unitId, skip, take, search,
 
 export const getEnquiryQuery = async (id, tenantId, unitId) => {
     const enquiry = await prisma.enquiry.findFirst({
-        where: { id, tenantId, unitId, isDeleted: false },
+        where: {
+            id,
+            tenantId,
+            ...(unitId && unitId !== 'ALL' ? { unitId } : {}),
+            isDeleted: false
+        },
         select: {
             ...enquiryWithRelationsSelect,
             followUps: {
                 select: {
                     id: true,
-                    nextDate: true,
                     scheduledAt: true,
                     notes: true,
                     outcome: true,
@@ -730,7 +734,22 @@ export const addFollowUpQuery = async (enquiryId, data, tenantId, unitId, userId
 
         let task = null;
 
-        if (staffAssignment) {
+        await tx.task.updateMany({
+            where: {
+                enquiryId,
+                type: 'SCHEDULED',
+                title: { startsWith: 'Client follow-up' },
+                status: { in: ['ASSIGNED', 'IN_PROGRESS'] }
+            },
+            data: {
+                status: 'COMPLETED',
+                completedAt: new Date()
+            }
+        });
+
+        const requiresNextAction = outcome !== 'LOST' && outcome !== 'FOLLOWUP_NOT_REQUIRED';
+
+        if (staffAssignment && requiresNextAction && scheduledAt) {
             task = await tx.task.create({
                 data: {
                     refNo: `TSK-${Date.now()}`,
@@ -749,10 +768,17 @@ export const addFollowUpQuery = async (enquiryId, data, tenantId, unitId, userId
             });
         }
 
+        let targetStatus = 'IN_PROGRESS';
+        if (['FOLLOWUP_REQUIRED', 'CALL_LATER', 'PENDING'].includes(outcome)) {
+            targetStatus = 'FOLLOW_UP';
+        } else if (['LOST', 'FOLLOWUP_NOT_REQUIRED', 'NOT_INTERESTED'].includes(outcome)) {
+            targetStatus = 'CLOSED';
+        }
+
         await tx.enquiry.update({
             where: { id: enquiryId },
             data: {
-                status: 'IN_PROGRESS'
+                status: targetStatus
             },
             select: { id: true }
         });
@@ -812,6 +838,10 @@ export const convertEnquiryToAdmissionQuery = async (enquiryId, data, user) => {
                 client: true,
                 admission: {
                     select: { id: true }
+                },
+                followUps: {
+                    orderBy: { createdAt: 'desc' },
+                    take: 1
                 }
             }
         });
@@ -819,6 +849,19 @@ export const convertEnquiryToAdmissionQuery = async (enquiryId, data, user) => {
         if (!enquiry) {
             const error = new Error('Enquiry not found or access denied');
             error.status = 404;
+            throw error;
+        }
+
+        if (enquiry.isConverted || enquiry.status === 'CLOSED') {
+            const error = new Error('Enquiry is closed or already converted');
+            error.status = 400;
+            throw error;
+        }
+
+        const latestOutcome = enquiry.followUps?.[0]?.outcome;
+        if (latestOutcome !== 'ADMISSION_PLANNED' && latestOutcome !== 'READY_TO_CONVERT') {
+            const error = new Error('Enquiry is not ready for admission conversion');
+            error.status = 400;
             throw error;
         }
 

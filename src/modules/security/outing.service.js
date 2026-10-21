@@ -102,14 +102,22 @@ export const recordPhysicalExit = async (tenantId, unitId, userId, requestId) =>
 export const recordPhysicalReturn = async (tenantId, unitId, userId, movementId) => {
     return await prisma.$transaction(async (tx) => {
         const movement = await tx.residentGateMovement.findFirst({
-            where: { id: movementId, tenantId, unitId, isDeleted: false }
+            where: {
+                OR: [
+                    { id: movementId },
+                    { outingRequestId: movementId }
+                ],
+                tenantId,
+                unitId,
+                isDeleted: false
+            }
         });
 
         if (!movement) throw new Error('Movement record not found or unauthorized');
         if (movement.status !== 'OUTSIDE') throw new Error('Resident is already returned or invalid status');
 
         const updatedMovement = await tx.residentGateMovement.update({
-            where: { id: movementId },
+            where: { id: movement.id },
             data: {
                 actualReturnAt: new Date(),
                 status: 'RETURNED',
@@ -142,6 +150,18 @@ export const createSecurityOuting = async (tenantId, unitId, userId, data) => {
             throw new Error('Resident is already outside on another outing');
         }
 
+        let normalizedCompanionType = null;
+        if (data.companionType) {
+            const rawType = String(data.companionType).toUpperCase();
+            if (rawType === 'STAFF' || rawType.includes('STAFF') || rawType.includes('CAREGIVER')) {
+                normalizedCompanionType = 'STAFF';
+            } else if (rawType === 'VISITOR' || rawType.includes('VISITOR') || rawType.includes('FAMILY') || rawType.includes('FRIEND') || rawType.includes('RELATIVE')) {
+                normalizedCompanionType = 'VISITOR';
+            } else if (rawType === 'EXTERNAL' || rawType.includes('EXTERNAL')) {
+                normalizedCompanionType = 'EXTERNAL';
+            }
+        }
+
         const request = await tx.residentOutingRequest.create({
             data: {
                 patientId: data.patientId,
@@ -153,7 +173,7 @@ export const createSecurityOuting = async (tenantId, unitId, userId, data) => {
                 expectedReturnAt: data.expectedReturnAt ? new Date(data.expectedReturnAt) : null,
                 status: 'APPROVED', // Keep approved for internal consistency if needed
                 requestedByUserId: userId,
-                companionType: data.companionType || null,
+                companionType: normalizedCompanionType,
                 companionStaffId: data.companionStaffId || null,
                 companionVisitorProfileId: data.companionVisitorProfileId || null,
                 companionName: data.companionName || null,

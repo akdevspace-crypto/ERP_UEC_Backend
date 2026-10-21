@@ -246,18 +246,5 @@ export async function seedEntityData(prisma, tenant, adminUser) {
             });
         }
 
-        await prisma.vitalSign.create({
-            data: {
-                patientId: `seed-${entity.code.toLowerCase()}-patient-1`,
-                bp: '168/98',
-                pulse: 118,
-                temp: 101.2,
-                spO2: 89,
-                notes: `Critical seeded vital for ${entity.code}`,
-                recordedById: adminUser.id,
-                tenantId: tenant.id,
-                unitId: unit.id
-            }
-        });
     }
 }

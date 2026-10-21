@@ -1,4 +1,14 @@
-import { getCaregiverVitalChartsService, saveCaregiverVitalChartService, getMedicationSchedulesService, createMedicationScheduleService, administerMedicationDoseService, getVitalsService, saveVitalService, verifyVitalService, getPrescriptionsService, createPrescriptionService, getMedicationLogsService, administerMedicationLogService, verifyMedicationLogService } from './service.js';
+import { getCaregiverVitalChartsService, saveCaregiverVitalChartService, getMedicationSchedulesService, createMedicationScheduleService, administerMedicationDoseService, getVitalsService, saveVitalService, verifyVitalService, uploadVitalPhotoService, getPrescriptionsService, createPrescriptionService, getMedicationLogsService, administerMedicationLogService, verifyMedicationLogService } from './service.js';
+
+export const uploadVitalPhoto = async (req: any, res: any, next: any) => {
+    try {
+        const scope = getScope(req);
+        const data = await uploadVitalPhotoService(req.file, scope, req.user);
+        res.status(201).json({ success: true, data, message: 'Vital photo uploaded successfully' });
+    } catch (error: any) {
+        res.status(400).json({ success: false, message: error.message });
+    }
+};
 import { caregiverVitalChartSchema, medicationScheduleSchema, administerDoseSchema, vitalSignSchema, prescriptionSchema, medicationLogSchema } from './validation.js';
 
 const getScope = (req: any) => ({
@@ -94,8 +104,7 @@ export const administerMedicationDose = async (req: any, res: any, next: any) =>
 export const getVitals = async (req: any, res: any, next: any) => {
     try {
         const scope = getScope(req);
-        const patientId = String(req.query.patientId || '').trim();
-        if (!patientId) throw new Error('patientId is required');
+        const patientId = req.query.patientId ? String(req.query.patientId).trim() : undefined;
         const data = await getVitalsService(patientId, scope);
         res.json({ success: true, data });
     } catch (error: any) {
@@ -185,3 +194,96 @@ export const verifyMedicationLog = async (req: any, res: any, next: any) => {
         res.status(400).json({ success: false, message: error.message });
     }
 };
+
+export const getPatientMonitoringStatus = async (req: any, res: any, next: any) => {
+    try {
+        const scope = getScope(req);
+        const patientId = req.params.patientId || String(req.query.patientId || '').trim();
+        const dateStr = req.query.date ? String(req.query.date).trim() : undefined;
+        if (!patientId) throw new Error('patientId is required');
+
+        const { getPatientMonitoringStatusService } = await import('./monitoring.service.js');
+        const data = await getPatientMonitoringStatusService(patientId, scope, req.user, dateStr);
+        res.json({ success: true, data });
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const upsertVitalMonitoringRequirement = async (req: any, res: any, next: any) => {
+    try {
+        const scope = getScope(req);
+        const patientId = req.params.patientId;
+        const { upsertVitalMonitoringRequirementService } = await import('./monitoring.service.js');
+        const data = await upsertVitalMonitoringRequirementService(patientId, req.body, scope, req.user);
+        res.status(200).json({ success: true, data, message: 'Monitoring requirement updated successfully' });
+    } catch (error: any) {
+        res.status(400).json({ success: false, message: error.message });
+    }
+};
+
+export const getVitalMonitoringRequirement = async (req: any, res: any, next: any) => {
+    try {
+        const scope = getScope(req);
+        const patientId = req.params.patientId;
+        const { getVitalMonitoringRequirementService } = await import('./monitoring.service.js');
+        const data = await getVitalMonitoringRequirementService(patientId, scope);
+        res.json({ success: true, data });
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const recordPatientAttention = async (req: any, res: any, next: any) => {
+    try {
+        const scope = getScope(req);
+        const patientId = req.params.patientId;
+        const { recordPatientAttentionService } = await import('./monitoring.service.js');
+        const data = await recordPatientAttentionService(patientId, req.body, scope, req.user);
+        res.status(201).json({ success: true, data, message: 'Patient attention note recorded successfully' });
+    } catch (error: any) {
+        if (error.message.includes('authorized') || error.message.includes('assignment')) {
+            return res.status(403).json({ success: false, message: error.message });
+        }
+        res.status(400).json({ success: false, message: error.message });
+    }
+};
+
+export const resolvePatientAttention = async (req: any, res: any, next: any) => {
+    try {
+        const scope = getScope(req);
+        const attentionId = req.params.id;
+        const { resolvePatientAttentionService } = await import('./monitoring.service.js');
+        const data = await resolvePatientAttentionService(attentionId, req.body, scope, req.user);
+        res.json({ success: true, data, message: 'Patient attention resolved successfully' });
+    } catch (error: any) {
+        res.status(400).json({ success: false, message: error.message });
+    }
+};
+
+export const getAttentionLogs = async (req: any, res: any, next: any) => {
+    try {
+        const scope = getScope(req);
+        const patientId = req.query.patientId ? String(req.query.patientId).trim() : undefined;
+        const status = req.query.status ? String(req.query.status).trim() : undefined;
+        const priority = req.query.priority ? String(req.query.priority).trim() : undefined;
+
+        const { getAttentionLogsService } = await import('./monitoring.service.js');
+        const data = await getAttentionLogsService(patientId, scope, { status, priority });
+        res.json({ success: true, data });
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const getAllPatientsMonitoringStatus = async (req: any, res: any, next: any) => {
+    try {
+        const scope = getScope(req);
+        const { getAllPatientsMonitoringStatusService } = await import('./monitoring.service.js');
+        const data = await getAllPatientsMonitoringStatusService(scope, req.user);
+        res.json({ success: true, data });
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+

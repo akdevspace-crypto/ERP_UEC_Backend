@@ -1,4 +1,6 @@
 import { Router } from 'express';
+// @ts-ignore
+import multer from 'multer';
 import { auth, enforceTenant } from '../../shared/middleware/auth.middleware.js';
 import { requireRoles } from '../../shared/middleware/rbac.middleware.js';
 import {
@@ -10,6 +12,14 @@ import {
     getVitals,
     saveVital,
     verifyVital,
+    uploadVitalPhoto,
+    getPatientMonitoringStatus,
+    upsertVitalMonitoringRequirement,
+    getVitalMonitoringRequirement,
+    recordPatientAttention,
+    resolvePatientAttention,
+    getAttentionLogs,
+    getAllPatientsMonitoringStatus,
     getPrescriptions,
     createPrescription,
     getMedicationLogs,
@@ -17,6 +27,10 @@ import {
     verifyMedicationLog
 } from './controller.js';
 
+const photoUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024 }
+});
 
 const router = Router();
 
@@ -35,10 +49,22 @@ router.get('/ping', (req, res) => {
 router.get('/caregiver-vital-charts', requireRoles(['SUPER_ADMIN', 'NURSE', 'NURSING_CARE_STAFF', 'NURSING_MANAGER', 'MEDICAL_MANAGER']), getCaregiverVitalCharts);
 router.post('/caregiver-vital-charts', requireRoles(['SUPER_ADMIN', 'NURSING_CARE_STAFF', 'NURSING_MANAGER', 'MEDICAL_MANAGER']), saveCaregiverVitalChart);
 
-// Vitals (New Prisma Flow)
+// Vitals & Monitoring (New Prisma Flow)
 router.get('/vitals', getVitals);
 router.post('/vitals', saveVital);
+router.post('/vitals/upload-photo', photoUpload.single('photo'), uploadVitalPhoto);
 router.patch('/vitals/:id/verify', requireRoles(['SUPER_ADMIN', 'NURSING_MANAGER', 'MEDICAL_MANAGER']), verifyVital);
+
+// Phase 2 Care-Plan Monitoring & Attention Routes
+router.get('/patients/:patientId/monitoring-status', getPatientMonitoringStatus);
+router.get('/patients/:patientId/monitoring-requirements', getVitalMonitoringRequirement);
+router.post('/patients/:patientId/monitoring-requirements', requireRoles(['SUPER_ADMIN', 'NURSING_MANAGER', 'MEDICAL_MANAGER', 'MEDICAL_DOCTOR']), upsertVitalMonitoringRequirement);
+router.get('/manager/monitoring', requireRoles(['SUPER_ADMIN', 'NURSING_MANAGER', 'MEDICAL_MANAGER', 'NURSING_SUPER_HEAD']), getAllPatientsMonitoringStatus);
+
+router.post('/patients/:patientId/attention', recordPatientAttention);
+router.patch('/attention/:id/resolve', resolvePatientAttention);
+router.get('/attention-logs', getAttentionLogs);
+
 
 // Medication Schedules (Legacy)
 router.get('/medication-schedules', getMedicationSchedules);

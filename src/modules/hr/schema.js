@@ -22,7 +22,7 @@ export const staffSchema = z.object({
   phone: z.string().optional().or(z.literal('')),
   email: z.string().email("Valid email is required").optional().or(z.literal('')),
   joiningDate: z.string().datetime().optional().or(z.string().optional()),
-  unitId: z.string().min(1, "Unit ID is required"),
+  unitId: z.string().optional(),
   status: z.string().optional(),
   metadata: z.any().optional(),
   userId: z.string().optional()
@@ -89,15 +89,20 @@ export const staffSalarySchema = z.object({
 export const candidateSchema = z.object({
   serialNo: z.string().optional(),
   name: z.string().min(1, 'Name is required'),
-  mobileNo: z.string().min(1, 'Mobile number is required'),
+  mobileNo: z.string().optional(),
+  phone: z.string().optional(),
+  email: z.string().optional(),
+  department: z.string().optional(),
+  experienceYears: z.union([z.number(), z.string()]).optional(),
+  expectedSalary: z.union([z.number(), z.string()]).optional(),
   sourceAgent: z.string().optional(),
   preferredRole: z.string().optional(),
-  stage: z.string().default('LEAD'),
+  stage: z.string().default('APPLIED'),
   isPlaced: z.boolean().default(false),
   details: z.any().optional(),
   unitId: z.string().optional(),
   termsAccepted: z.boolean().optional()
-});
+}).passthrough();
 
 export const candidateUpdateSchema = candidateSchema.partial();
 
@@ -113,4 +118,16 @@ export const interviewSchema = z.object({
 });
 
 export const interviewUpdateSchema = interviewSchema.partial();
+
+
+export const provisionAccountSchema = z.object({
+  roleId: z.string().min(1, 'Role ID is required'),
+  passwordMethod: z.enum(['SELF_ACTIVATION', 'HR_TEMPORARY']).optional().default('SELF_ACTIVATION'),
+  generateTemporaryPassword: z.boolean().optional()
+});
+
+export const resetStaffPasswordSchema = z.object({
+  method: z.enum(['SEND_RESET_LINK', 'HR_TEMPORARY']),
+  temporaryPassword: z.string().min(6).optional()
+});
 

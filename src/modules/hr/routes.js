@@ -5,6 +5,7 @@ import {
     handleGetRoles,
     handleGetStaffPerformance,
     handleGetAttendanceLogs,
+    handleRecordStaffAttendance,
     handleGetPayrollPreview,
     handleProcessPayroll,
     handleGetMyAttendanceLogs,
@@ -19,6 +20,8 @@ import {
     handleUpdateStaffSalary,
     handleUpdateStaffMenuPrivilege,
     handleDeleteStaff,
+    handleProvisionStaffAccount,
+    handleResetStaffPassword,
     handleCreateJobApplication,
     handleGetJobApplications,
     handleUpdateJobApplication,
@@ -61,6 +64,7 @@ router.get('/staff', handleGetStaff);
 router.get('/roles', handleGetRoles);
 router.get('/staff/performance', handleGetStaffPerformance);
 router.get('/attendance', handleGetAttendanceLogs);
+router.post('/attendance', handleRecordStaffAttendance);
 router.get('/payroll', handleGetPayrollPreview);
 router.post('/payroll/process', handleProcessPayroll);
 router.get('/my-attendance', handleGetMyAttendanceLogs);
@@ -81,6 +85,8 @@ router.get('/staff/:id/salary', handleGetStaffSalary);
 router.put('/staff/:id/salary', handleUpdateStaffSalary);
 router.patch('/staff/:id/menu-privilege', handleUpdateStaffMenuPrivilege);
 router.delete('/staff/:id', handleDeleteStaff);
+router.post('/staff/:id/provision-account', handleProvisionStaffAccount);
+router.post('/staff/:id/reset-password', handleResetStaffPassword);
 
 router.post('/job-applications', handleCreateJobApplication);
 router.get('/job-applications', handleGetJobApplications);

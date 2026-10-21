@@ -1,1 +1,0 @@
-const { PrismaClient } = require('@prisma/client'); const prisma = new PrismaClient(); async function main() { const res = await prisma.serviceClosure.findFirst({ where: { status: 'EXECUTED' }, include: { admission: { include: { patient: true } } } }); console.log(JSON.stringify(res, null, 2)); } main().catch(console.error).finally(() => prisma.$disconnect());

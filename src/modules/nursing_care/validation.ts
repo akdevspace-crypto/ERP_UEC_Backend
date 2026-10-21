@@ -46,18 +46,24 @@ export const caregiverVitalChartSchema = z.object({
 export const vitalSignSchema = z.object({
     patientId: z.string().uuid(),
     assignmentId: z.string().uuid().optional(),
-    shift: z.enum(['MORNING', 'EVENING']),
+    shift: z.enum(['MORNING', 'EVENING']).optional(),
     recordedAt: z.string().datetime().optional(),
     bp: z.string().optional().or(z.literal('')),
+    systolic: z.coerce.number().optional(),
+    diastolic: z.coerce.number().optional(),
     pulse: z.coerce.number().optional(),
     temp: z.coerce.number().optional(),
+    temperature: z.coerce.number().optional(),
     spO2: z.coerce.number().optional(),
-    bloodSugar: z.string().optional().or(z.literal('')),
-    notes: z.string().optional().or(z.literal(''))
+    spo2: z.coerce.number().optional(),
+    bloodSugar: z.union([z.string(), z.number()]).optional().or(z.literal('')).transform(v => v !== undefined && v !== null && v !== '' ? String(v) : ''),
+    notes: z.string().optional().or(z.literal('')),
+    photoUrl: z.string().optional().or(z.literal(''))
 });
 
 export const prescriptionSchema = z.object({
     patientId: z.string().uuid(),
+    productId: z.string().uuid().optional(),
     medication: z.string().min(1),
     dosage: z.string().min(1),
     frequency: z.string().min(1),

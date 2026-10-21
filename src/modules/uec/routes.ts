@@ -13,6 +13,34 @@ const getScope = (req: any) => ({
     unitId: req.user.unitId
 });
 
+// Helper for 6-month windows
+const startOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1);
+
+const buildMonthWindows = () => {
+    const now = new Date();
+    return Array.from({ length: 6 }, (_, index) => {
+        const start = startOfMonth(new Date(now.getFullYear(), now.getMonth() - (5 - index), 1));
+        const end = new Date(start.getFullYear(), start.getMonth() + 1, 1);
+        return {
+            label: start.toLocaleString("en-US", { month: "short" }),
+            start,
+            end
+        };
+    });
+};
+
+const countInWindow = async (model: any, scope: any, window: any) => {
+    return model.count({
+        where: {
+            ...scope,
+            createdAt: {
+                gte: window.start,
+                lt: window.end
+            }
+        }
+    });
+};
+
 // ==========================================
 // 1. DASHBOARDS
 // ==========================================
@@ -20,21 +48,26 @@ const getScope = (req: any) => ({
 router.get('/dashboard/admin', auth, enforceTenant, async (req, res, next) => {
     try {
         const scope = getScope(req);
+        const windows = buildMonthWindows();
+        const taskScope = { ...scope, status: { notIn: ['COMPLETED', 'CANCELLED'] } };
 
-        // Simple aggregation queries based on UEC context
         const [patientsCount, tasksCount, vitalsCount] = await Promise.all([
             prisma.patient.count({ where: scope }),
-            prisma.task.count({ where: { ...scope, status: { notIn: ['COMPLETED', 'CANCELLED'] } } }),
+            prisma.task.count({ where: taskScope }),
             prisma.vitalSign.count({ where: scope })
         ]);
 
+        const residentsData = await Promise.all(windows.map(w => countInWindow(prisma.patient, scope, w)));
+        const tasksData = await Promise.all(windows.map(w => countInWindow(prisma.task, taskScope, w)));
+        const vitalsData = await Promise.all(windows.map(w => countInWindow(prisma.vitalSign, scope, w)));
+
         return success(res, {
             trend: {
-                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                labels: windows.map(w => w.label),
                 datasets: [
-                    { label: 'Residents', data: [10, 15, 20, 22, 25, patientsCount] },
-                    { label: 'Active Tasks', data: [5, 8, 12, 10, 15, tasksCount] },
-                    { label: 'Vitals Logged', data: [20, 30, 45, 50, 60, vitalsCount] }
+                    { label: 'Residents', data: residentsData },
+                    { label: 'Active Tasks', data: tasksData },
+                    { label: 'Vitals Logged', data: vitalsData }
                 ]
             },
             summary: {
@@ -51,18 +84,31 @@ router.get('/dashboard/admin', auth, enforceTenant, async (req, res, next) => {
 router.get('/dashboard/finance', auth, enforceTenant, async (req, res, next) => {
     try {
         const scope = getScope(req);
+        const windows = buildMonthWindows();
 
         const expensesCount = await prisma.expense.count({ where: scope });
         const invoicesCount = await prisma.invoice.count({ where: scope });
         const costCount = await prisma.patientDailyCost.count({ where: scope });
 
+        const expensesData = await Promise.all(windows.map(async w => {
+            const count = await countInWindow(prisma.expense, scope, w);
+            return count * 1000;
+        }));
+        
+        const invoicesData = await Promise.all(windows.map(w => countInWindow(prisma.invoice, scope, w)));
+        
+        const costData = await Promise.all(windows.map(async w => {
+            const count = await countInWindow(prisma.patientDailyCost, scope, w);
+            return count * 500;
+        }));
+
         return success(res, {
             trend: {
-                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                labels: windows.map(w => w.label),
                 datasets: [
-                    { label: 'Expense Volume', data: [5000, 7000, 6000, 8000, 9500, expensesCount * 1000] },
-                    { label: 'Invoices Generated', data: [2, 5, 8, 12, 15, invoicesCount] },
-                    { label: 'Care Spend', data: [1000, 1500, 2000, 2500, 3000, costCount * 500] }
+                    { label: 'Expense Volume', data: expensesData },
+                    { label: 'Invoices Generated', data: invoicesData },
+                    { label: 'Care Spend', data: costData }
                 ]
             }
         });

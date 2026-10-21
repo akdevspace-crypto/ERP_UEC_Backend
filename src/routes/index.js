@@ -1,3 +1,4 @@
+import financeRoutes from '../modules/accounts/finance.routes.js';
 import { Router } from 'express';
 import authRoutes from '../modules/auth/routes.js';
 import enquiryRoutes from '../modules/enquiry/routes.js';
@@ -75,12 +76,14 @@ router.use('/super-admin', superAdminRoutes);
 // Frontend-prefixed modules
 router.use('/hr', hrRoutes);
 router.use('/accounts', accountsRoutes);
+router.use('/finance', financeRoutes);
 router.use('/customer-care', customerCareRoutes);
 router.use('/client-portal', clientPortalRoutes);
 router.use('/cms', cmsRoutes);
 router.use('/location', locationRoutes);
 router.use('/service-contracts', contractRoutes);
 router.use('/closing-agreements', closureRoutes);
+router.use('/closure', closureRoutes);
 router.use('/workflow', workflowRoutes);
 router.use('/admin-files', adminFileRoutes);
 router.use('/security', securityRoutes);

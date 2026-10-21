@@ -1,199 +1,94 @@
-require('dotenv').config();
-const { PrismaClient } = require('./src/generated/prisma');
-const prisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: process.env.DATABASE_URL + "&connection_limit=1"
-    }
-  }
-});
 const fs = require('fs');
+const path = require('path');
+const { PrismaClient } = require('./src/generated/prisma');
 
-async function runAudit() {
-  console.log("Starting audit...");
-  try {
-    const staffRecords = await prisma.staff.findMany({
-      select: { id: true, empId: true, tenantId: true, unitId: true, metadata: true }
-    });
-
-    const attendanceLogRecords = await prisma.attendanceLog.findMany({
-      select: { id: true, staffId: true, date: true, tenantId: true, unitId: true }
-    });
-
-    console.log(`Total Staff: ${staffRecords.length}`);
-
-    let staffWithAttendance = 0;
-    let totalHistoricalRecords = 0;
-    let staffWithZeroRecords = 0;
-    let dates = [];
-    
-    let structureFields = new Set();
-    let statuses = new Set();
-    
-    let missingCheckIn = 0;
-    let missingCheckOut = 0;
-    let bothPresent = 0;
-    let neitherPresent = 0;
-    let checkoutEarlier = 0;
-    let invalidTimestamps = 0;
-    let multipleCheckins = 0; // difficult without arrays, assuming flat record?
-    
-    let recordsPerTenant = {};
-    let recordsPerUnit = {};
-
-    let historicalByStaffDate = {};
-    let duplicateStaffDateCombos = 0;
-    let maxDuplicates = 0;
-
-    let inconsistentTenant = 0;
-    let missingUnit = 0;
-
-    for (const s of staffRecords) {
-      const metadata = s.metadata || {};
-      const attendance = metadata.attendance || {};
-      const logs = attendance.logs || [];
-
-      if (!Array.isArray(logs) || logs.length === 0) {
-        staffWithZeroRecords++;
-        continue;
+async function audit() {
+  const prisma = new PrismaClient();
+  const schemaPath = 'prisma/schema.prisma';
+  const migrationsDir = 'prisma/migrations';
+  
+  const prismaSchema = fs.readFileSync(schemaPath, 'utf8');
+  
+  const models = [...prismaSchema.matchAll(/model\s+(\w+)\s+\{/g)].map(m => m[1]);
+  const enums = [...prismaSchema.matchAll(/enum\s+(\w+)\s+\{/g)].map(m => m[1]);
+  
+  const migrations = fs.readdirSync(migrationsDir).filter(f => fs.statSync(path.join(migrationsDir, f)).isDirectory()).sort();
+  
+  let modelCreationMap = {};
+  let enumCreationMap = {};
+  
+  for (const mig of migrations) {
+    const sqlPath = path.join(migrationsDir, mig, 'migration.sql');
+    if (fs.existsSync(sqlPath)) {
+      const sql = fs.readFileSync(sqlPath, 'utf8');
+      const tableMatches = [...sql.matchAll(/CREATE TABLE\s+"?(\w+)"?/gi)].map(m => m[1]);
+      for (const t of tableMatches) {
+        if (!modelCreationMap[t]) modelCreationMap[t] = mig;
       }
-
-      staffWithAttendance++;
-      totalHistoricalRecords += logs.length;
-
-      for (const log of logs) {
-        // 1. Structure
-        Object.keys(log).forEach(k => structureFields.add(k));
-        
-        // 2. Inventory (Dates & Tenant/Unit counts)
-        if (log.date) {
-          dates.push(new Date(log.date));
-        }
-
-        recordsPerTenant[s.tenantId] = (recordsPerTenant[s.tenantId] || 0) + 1;
-        recordsPerUnit[s.unitId] = (recordsPerUnit[s.unitId] || 0) + 1;
-
-        // 4. Duplicate analysis
-        const key = `${s.id}_${log.date}`;
-        if (!historicalByStaffDate[key]) {
-          historicalByStaffDate[key] = [];
-        }
-        historicalByStaffDate[key].push(log);
-
-        // 5. Check-in/out
-        if (log.checkIn && log.checkOut) {
-          bothPresent++;
-          const ci = new Date(log.checkIn);
-          const co = new Date(log.checkOut);
-          if (isNaN(ci.getTime()) || isNaN(co.getTime())) {
-            invalidTimestamps++;
-          } else if (co < ci) {
-            checkoutEarlier++;
-          }
-        } else if (log.checkIn && !log.checkOut) {
-          missingCheckOut++;
-        } else if (!log.checkIn && log.checkOut) {
-          missingCheckIn++;
-        } else {
-          neitherPresent++;
-        }
-
-        // 6. Status
-        if (log.status) statuses.add(log.status);
-
-        // 10. Tenant/Unit safety
-        if (!s.tenantId) inconsistentTenant++;
-        if (!s.unitId) missingUnit++;
+      const enumMatches = [...sql.matchAll(/CREATE TYPE\s+"?(\w+)"?\s+AS ENUM/gi)].map(m => m[1]);
+      for (const e of enumMatches) {
+        if (!enumCreationMap[e]) enumCreationMap[e] = mig;
       }
     }
-
-    let minDate = dates.length ? new Date(Math.min(...dates)) : null;
-    let maxDate = dates.length ? new Date(Math.max(...dates)) : null;
-
-    let duplicateCount = 0;
-    for (const key in historicalByStaffDate) {
-      const count = historicalByStaffDate[key].length;
-      if (count > 1) {
-        duplicateCount++;
-        duplicateStaffDateCombos++;
-        if (count > maxDuplicates) maxDuplicates = count;
-      }
-    }
-
-    // 8. Existing AttendanceLog
-    let overlaps = 0;
-    let existingPerTenant = {};
-    let existingPerUnit = {};
-    let existingPerStaff = {};
-    let existingDates = [];
-
-    for (const al of attendanceLogRecords) {
-      existingPerTenant[al.tenantId] = (existingPerTenant[al.tenantId] || 0) + 1;
-      existingPerUnit[al.unitId] = (existingPerUnit[al.unitId] || 0) + 1;
-      existingPerStaff[al.staffId] = (existingPerStaff[al.staffId] || 0) + 1;
-      
-      const d = al.date ? al.date.toISOString().split('T')[0] : null;
-      if (d) existingDates.push(al.date);
-
-      // check overlap
-      const histLogs = historicalByStaffDate[`${al.staffId}_${d}`] || historicalByStaffDate[`${al.staffId}_${al.date}`]; 
-      // The JSON date format might be YYYY-MM-DD or ISO string.
-      // We will check both or more generalized overlap in the full script.
-    }
-
-    // Checking overlap more carefully
-    attendanceLogRecords.forEach(al => {
-      const d1 = al.date.toISOString().split('T')[0]; // assuming al.date is Date object
-      // look for any log with this date string
-      const histLogs = historicalByStaffDate[`${al.staffId}_${d1}`];
-      if (histLogs) overlaps++;
-    });
-
-    const report = {
-      structureFields: Array.from(structureFields),
-      inventory: {
-        totalStaff: staffRecords.length,
-        staffWithAttendance,
-        staffWithZeroRecords,
-        totalHistoricalRecords,
-        earliestDate: minDate,
-        latestDate: maxDate,
-        recordsPerTenant,
-        recordsPerUnit
-      },
-      checkInOut: {
-        bothPresent,
-        missingCheckIn,
-        missingCheckOut,
-        neitherPresent,
-        checkoutEarlier,
-        invalidTimestamps
-      },
-      statuses: Array.from(statuses),
-      duplicates: {
-        duplicateStaffDateCombos,
-        maxDuplicates
-      },
-      tenantUnitSafety: {
-        inconsistentTenant,
-        missingUnit
-      },
-      existingLogs: {
-        totalRows: attendanceLogRecords.length,
-        earliestDate: existingDates.length ? new Date(Math.min(...existingDates)) : null,
-        latestDate: existingDates.length ? new Date(Math.max(...existingDates)) : null,
-        overlaps
-      }
-    };
-
-    fs.writeFileSync('audit_results.json', JSON.stringify(report, null, 2));
-    console.log("Audit complete. Results written to audit_results.json");
-
-  } catch (err) {
-    console.error("Error during audit:", err);
-  } finally {
-    await prisma.$disconnect();
   }
+  
+  const criticalModels = [
+    'Patient', 'Prescription', 'Product', 'ProductBatch', 'Stock', 
+    'StockMovement', 'StockIssueRequest', 'MedicationLog', 'ServiceContract', 
+    'Admission', 'User', 'Tenant', 'Unit'
+  ];
+  
+  const pgTables = await prisma.$queryRawUnsafe("SELECT table_name FROM information_schema.tables WHERE table_schema='public'");
+  const physicalExistence = {};
+  for (const t of pgTables) {
+    physicalExistence[t.table_name] = true;
+  }
+  
+  let appliedMigrations = [];
+  try {
+    appliedMigrations = await prisma.$queryRawUnsafe("SELECT migration_name, applied_steps_count, rolled_back_at, finished_at, checksum FROM _prisma_migrations ORDER BY started_at ASC");
+  } catch(e) {}
+  
+  let rowCounts = {};
+  for (const m of criticalModels) {
+    if (physicalExistence[m]) {
+      try {
+        const res = await prisma.$queryRawUnsafe(`SELECT COUNT(*) as count FROM "${m}"`);
+        rowCounts[m] = Number(res[0].count);
+      } catch(e) {
+        rowCounts[m] = 'Error';
+      }
+    } else {
+      rowCounts[m] = 'Table not found';
+    }
+  }
+  
+  console.log('--- MODELS WITHOUT MIGRATION ---');
+  const missingModels = models.filter(m => !modelCreationMap[m]);
+  console.log('Count:', missingModels.length);
+  //console.log(missingModels);
+  
+  console.log('\n--- ENUMS WITHOUT MIGRATION ---');
+  const missingEnums = enums.filter(e => !enumCreationMap[e]);
+  console.log('Count:', missingEnums.length);
+  //console.log(missingEnums);
+  
+  console.log('\n--- CRITICAL MODELS ---');
+  for (const m of criticalModels) {
+    console.log(`Model: ${m}`);
+    console.log(`  Schema: ${models.includes(m)}`);
+    console.log(`  Migrated: ${modelCreationMap[m] || 'NO'}`);
+    console.log(`  Physical: ${!!physicalExistence[m]}`);
+  }
+  
+  console.log('\n--- APPLIED MIGRATIONS ---');
+  for (const m of appliedMigrations) {
+    console.log(`${m.migration_name} | applied:${m.applied_steps_count} | rolled_back:${m.rolled_back_at} | finished:${m.finished_at}`);
+  }
+  
+  console.log('\n--- ROW COUNTS ---');
+  console.log(rowCounts);
+  
+  await prisma.$disconnect();
 }
-
-runAudit();
+audit().catch(console.error);

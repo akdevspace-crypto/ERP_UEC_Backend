@@ -102,54 +102,7 @@ router.get('/gate-queue', auth, enforceTenant, canReadSecurity, gateQueueControl
 
 router.get('/reports/daily-movement', auth, enforceTenant, canReadSecurity, reportsController.getDailyMovementReportController);
 
-router.post('/vehicle-entries', auth, enforceTenant, canCreateSecurity, async (req, res, next) => {
-    try {
-        const scope = getScope(req);
-        const { vehicleNo, vehicleType, driverName, driverMobile, purpose, companyName, materialDetails, remarks } = readVehiclePayload(req.body);
-
-        if (!vehicleNo) throw buildHttpError('Vehicle number is required');
-        if (!driverName) throw buildHttpError('Driver name is required');
-        if (!purpose) throw buildHttpError('Vehicle purpose is required');
-
-        const now = new Date().toISOString();
-        const created = await prisma.auditLog.create({
-            data: {
-                userId: scope.userId,
-                module: moduleName,
-                action: 'VEHICLE_CHECK_IN',
-                tenantId: scope.tenantId,
-                unitId: scope.unitId,
-                payload: {
-                    entryType: 'VEHICLE',
-                    vehicleNo,
-                    vehicleType,
-                    driverName,
-                    driverMobile,
-                    purpose,
-                    companyName,
-                    materialDetails,
-                    remarks,
-                    status: 'Checked In',
-                    checkInAt: now,
-                    checkOutAt: null,
-                    recordedBy: req.user?.name || req.user?.email || 'Security'
-                }
-            },
-            include: {
-                user: {
-                    select: {
-                        firstName: true,
-                        email: true
-                    }
-                }
-            }
-        });
-
-        res.status(201).json({ success: true, data: normalizeEntry(created), message: 'Vehicle checked in successfully' });
-    } catch (error) {
-        next(error);
-    }
-});
+router.post('/vehicle-entries', auth, enforceTenant, canCreateSecurity, vehicleController.createVehicleMovement);
 
 router.post('/staff-entries', auth, enforceTenant, canCreateSecurity, async (req, res, next) => {
     try {
@@ -286,6 +239,43 @@ router.patch('/expected-visitors/:id/check-in', auth, enforceTenant, canUpdateSe
         const id = normalizeString(req.params.id);
         if (!id) throw buildHttpError('Expected visitor id is required');
 
+        // 1. Check if this is an expected VisitorPass
+        const visitorPass = await prisma.visitorPass.findFirst({
+            where: {
+                id,
+                tenantId: scope.tenantId,
+                ...(canAccessTenantSecurityLogs(req) ? {} : { unitId: scope.unitId })
+            },
+            include: { visitor: true }
+        });
+
+        if (visitorPass) {
+            const updatedPass = await prisma.visitorPass.update({
+                where: { id: visitorPass.id },
+                data: {
+                    status: 'APPROVED',
+                    checkInAt: new Date(),
+                    materialDetails: req.body.remarks
+                        ? [visitorPass.materialDetails, req.body.remarks].filter(Boolean).join(' | ')
+                        : visitorPass.materialDetails
+                },
+                include: { visitor: true }
+            });
+            return res.json({
+                success: true,
+                data: {
+                    id: updatedPass.id,
+                    entryType: 'VISITOR_PASS',
+                    status: 'Checked In',
+                    checkInAt: updatedPass.checkInAt,
+                    visitorName: updatedPass.visitor?.name,
+                    mobile: updatedPass.visitor?.mobile
+                },
+                message: 'Expected visitor checked in successfully'
+            });
+        }
+
+        // 2. Fallback to legacy AuditLog
         const existing = await prisma.auditLog.findFirst({
             where: buildSecurityWhere(req, scope, { id })
         });
@@ -348,6 +338,34 @@ router.patch('/gate-entries/:id/checkout', auth, enforceTenant, canUpdateSecurit
                 },
                 message: 'Visitor checked out successfully'
             });
+        }
+
+        // Check if this is a resident outing movement or request
+        const residentMovement = await prisma.residentGateMovement.findFirst({
+            where: {
+                OR: [{ id }, { outingRequestId: id }],
+                tenantId: scope.tenantId,
+                ...(canAccessTenantSecurityLogs(req) ? {} : { unitId: scope.unitId }),
+                isDeleted: false
+            }
+        });
+
+        if (residentMovement) {
+            return await outingController.recordPhysicalReturn(req, res);
+        }
+
+        // Check if this is an active vehicle movement
+        const activeVehicle = await prisma.vehicleMovement.findFirst({
+            where: {
+                id,
+                tenantId: scope.tenantId,
+                ...(canAccessTenantSecurityLogs(req) ? {} : { unitId: scope.unitId }),
+                status: 'INSIDE'
+            }
+        });
+
+        if (activeVehicle) {
+            return await vehicleController.exitVehicleMovement(req, res, next);
         }
 
         const existing = await prisma.auditLog.findFirst({

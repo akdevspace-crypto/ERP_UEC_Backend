@@ -5,7 +5,7 @@ export const enquirySchema = z.object({
     mobile: z.string().min(10, 'Mobile must be at least 10 characters'),
     email: z.string().email().optional().or(z.literal('')),
     service: z.string().optional().or(z.literal('')),
-    unitId: z.string().optional().or(z.literal('')),
+    unitId: z.string().optional().nullable().or(z.literal('')),
     mode: z.enum(['Call', 'Walk-in', 'Website', 'Reference']).optional(),
     comments: z.string().optional().or(z.literal('')),
     status: z.enum(['Open', 'In Progress', 'Converted', 'Lost', 'Emergency', 'Important', 'Just Enquiry']).optional(),
@@ -21,7 +21,10 @@ export const enquirySchema = z.object({
         shift: z.string().optional(),
         startDate: z.string().optional(),
         frequency: z.string().optional(),
-        careRequirements: z.array(z.string()).optional(),
+        careRequirements: z.union([
+            z.array(z.string()),
+            z.string().transform((val) => (val ? val.split(',').map((s) => s.trim()).filter(Boolean) : []))
+        ]).optional(),
         specialInstructions: z.string().optional()
     }).optional()
 });

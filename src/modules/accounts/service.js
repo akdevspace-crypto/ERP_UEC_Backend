@@ -51,7 +51,7 @@ const resolveServiceAmount = (allocation) => {
     return Number.isFinite(amount) ? amount : 0;
 };
 
-const createInvoiceDraftForApprovedDuty = async (tx, task, allocation) => {
+export const createInvoiceDraftForApprovedDuty = async (tx, task, allocation) => {
     const existingInvoice = await tx.accountTransaction.findFirst({
         where: {
             allocationId: allocation.id,
@@ -241,6 +241,90 @@ export const reconcileMissingServiceInvoices = async (tenantId, unitId) => {
     }
 };
 
+export const getFinancialClearance = async (tenantId, enquiryId, unitId) => {
+    if (!enquiryId) {
+        return { totalInvoice: 0, totalReceipt: 0, outstandingBalance: 0, isCleared: true };
+    }
+
+    const allocationWhere = { enquiryId, tenantId, isDeleted: false };
+    if (unitId && unitId !== 'ALL') {
+        allocationWhere.unitId = unitId;
+    }
+
+    const allocations = await prisma.allocation.findMany({
+        where: allocationWhere,
+        select: { id: true }
+    });
+    const allocationIds = allocations.map(a => a.id);
+
+    if (!allocationIds.length) {
+        return { totalInvoice: 0, totalReceipt: 0, outstandingBalance: 0, isCleared: true };
+    }
+
+    const txWhere = { allocationId: { in: allocationIds }, status: 'POSTED', isDeleted: false };
+    if (unitId && unitId !== 'ALL') {
+        txWhere.unitId = unitId;
+    }
+
+    const transactions = await prisma.accountTransaction.findMany({
+        where: txWhere,
+        select: { type: true, amount: true }
+    });
+
+    const totalInvoice = transactions
+        .filter(t => t.type === 'INVOICE')
+        .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+    const totalReceipt = transactions
+        .filter(t => t.type === 'RECEIPT')
+        .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+    const rawBalance = totalInvoice - totalReceipt;
+    const outstandingBalance = Number(Math.max(0, rawBalance).toFixed(2));
+
+    return {
+        totalInvoice: Number(totalInvoice.toFixed(2)),
+        totalReceipt: Number(totalReceipt.toFixed(2)),
+        outstandingBalance,
+        isCleared: outstandingBalance <= 0
+    };
+};
+
+export const postMonthlyPatientInvoiceToLedger = async (tx, { tenantId, unitId, allocationId, totalAmount, clientName, notes, metadata }) => {
+    const counter = await tx.refCounter.upsert({
+        where: {
+            prefix_tenantId: {
+                prefix: 'INV',
+                tenantId
+            }
+        },
+        update: { current: { increment: 1 } },
+        create: {
+            prefix: 'INV',
+            current: 1,
+            tenantId,
+            unitId
+        }
+    });
+    const refNo = `INV-${String(counter.current).padStart(6, '0')}`;
+
+    return tx.accountTransaction.create({
+        data: {
+            refNo,
+            allocationId,
+            type: 'INVOICE',
+            amount: totalAmount,
+            paymentMode: 'UPI',
+            category: 'Monthly Patient Invoice',
+            clientName: clientName || 'Patient Family',
+            notes: notes || 'Monthly patient invoice',
+            status: 'CREATED',
+            date: new Date(),
+            metadata,
+            tenantId,
+            unitId
+        }
+    });
+};
+
 export const createInvoice = async (tenantId, unitId, data) => {
     await ensurePatientBillingTables();
     const refNo = await generateRef('INV', tenantId, unitId);
@@ -337,7 +421,7 @@ export const listInvoices = async (tenantId, unitId, options = {}) => {
         : 200;
     params.push(limit);
 
-    return prisma.$queryRawUnsafe(`
+    const rows = await prisma.$queryRawUnsafe(`
         SELECT * FROM (
             SELECT
                 "id",
@@ -384,8 +468,48 @@ export const listInvoices = async (tenantId, unitId, options = {}) => {
         ) AS "CombinedInvoices"
         WHERE ${filters.join('\n          AND ')}
         ORDER BY "createdAt" DESC
-        LIMIT $${params.length}
+        LIMIT ${params.length}
     `, ...params);
+
+    const allocIds = rows.filter(r => r.allocationId).map(r => `'${r.allocationId}'`);
+    if (allocIds.length > 0) {
+        try {
+            const allocs = await prisma.$queryRawUnsafe(`
+                SELECT a."id", 
+                       p."name" as "patientName", p."phone" as "patientPhone", p."emergencyContact",
+                       c."name" as "clientName", c."mobile" as "clientMobile"
+                FROM "Allocation" a
+                LEFT JOIN "Admission" adm ON a."admissionId" = adm."id"
+                LEFT JOIN "Patient" p ON adm."patientId" = p."id"
+                LEFT JOIN "Enquiry" e ON a."enquiryId" = e."id"
+                LEFT JOIN "Client" c ON e."clientId" = c."id"
+                WHERE a."id"::text IN (${allocIds.join(',')})
+            `);
+            const allocMap = new Map(allocs.map(a => [a.id, a]));
+            return rows.map(r => {
+                const meta = r.metadata || {};
+                const alloc = allocMap.get(r.allocationId);
+                if (alloc) {
+                    const resolvedName = alloc.patientName || alloc.clientName || r.clientName;
+                    const resolvedContact = meta.familyContact || alloc.patientPhone || alloc.clientMobile || alloc.emergencyContact;
+                    return {
+                        ...r,
+                        clientName: (r.clientName === 'Client' && resolvedName) ? resolvedName : r.clientName,
+                        metadata: {
+                            ...meta,
+                            patientName: meta.patientName || resolvedName,
+                            familyContact: resolvedContact || null
+                        }
+                    };
+                }
+                return r;
+            });
+        } catch {
+            return rows;
+        }
+    }
+
+    return rows;
 };
 
 export const createIncome = async (tenantId, unitId, userId, data) => {
@@ -443,8 +567,14 @@ export const recordInvoicePayment = async (tenantId, unitId, userId, invoiceId, 
 
         const invoiceStatus = isInvoiceTableModel ? (invoice.status === 'FINALIZED' ? 'POSTED' : invoice.status) : invoice.status;
 
-        if (invoiceStatus !== 'POSTED') {
-            const error = new Error('Only posted invoices can receive payments');
+        if (invoiceStatus === 'REJECTED') {
+            const error = new Error('Cancelled or rejected invoices cannot receive payments');
+            error.status = 400;
+            throw error;
+        }
+
+        if (!['POSTED', 'CREATED', 'APPROVED'].includes(invoiceStatus)) {
+            const error = new Error('Only active invoices can receive payments');
             error.status = 400;
             throw error;
         }
@@ -537,6 +667,7 @@ export const recordInvoicePayment = async (tenantId, unitId, userId, invoiceId, 
             updatedInvoice = await tx.accountTransaction.update({
                 where: { id: invoice.id },
                 data: {
+                    status: 'POSTED',
                     paymentMode: data.mode || invoice.paymentMode,
                     metadata: {
                         ...invoiceMetadata,

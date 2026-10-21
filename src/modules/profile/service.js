@@ -102,3 +102,16 @@ export const getProfileInfo = async (userId) => {
         sessionUser
     };
 };
+
+export const updateProfileInfo = async (userId, data) => {
+    if (Object.keys(data).length === 0) {
+        return getProfileInfo(userId);
+    }
+    
+    await prisma.user.update({
+        where: { id: userId },
+        data
+    });
+    
+    return getProfileInfo(userId);
+};

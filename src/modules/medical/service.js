@@ -79,15 +79,16 @@ export const generateOperationalTasksForAssignment = async (tx, assignment, staf
 };
 
 const ACTIVE_STATUSES = ['PENDING', 'ASSIGNED', 'IN_PROGRESS', 'ON_HOLD'];
-const TERMINAL_STATUSES = ['COMPLETED', 'CANCELLED'];
+const TERMINAL_STATUSES = ['COMPLETED', 'CANCELLED', 'WAITING_APPROVAL', 'APPROVED'];
 
 const mapAssignmentResponse = (assignment) => {
     if (!assignment) return assignment;
-    const { Staff, Patient, ...rest } = assignment;
+    const { Staff, Patient, Allocation, ...rest } = assignment;
     return {
         ...rest,
         ...(Staff !== undefined && { staff: Staff }),
-        ...(Patient !== undefined && { patient: Patient })
+        ...(Patient !== undefined && { patient: Patient }),
+        ...(Allocation !== undefined && { allocation: Allocation })
     };
 };
 
@@ -114,14 +115,25 @@ const assignmentInclude = {
             id: true,
             name: true
         }
+    },
+    Allocation: {
+        select: {
+            id: true,
+            refNo: true,
+            type: true,
+            status: true,
+            enquiryId: true
+        }
     }
 };
 
 const medicalStaffFilters = [
     { designation: { contains: 'doctor', mode: 'insensitive' } },
     { designation: { contains: 'nurse', mode: 'insensitive' } },
-    { department: { contains: 'medical', mode: 'insensitive' } },
-    { department: { contains: 'nursing', mode: 'insensitive' } }
+    { designation: { contains: 'caregiver', mode: 'insensitive' } },
+    { designation: { contains: 'care', mode: 'insensitive' } },
+    { department: { contains: 'nursing', mode: 'insensitive' } },
+    { department: { contains: 'patient care', mode: 'insensitive' } }
 ];
 
 const medicalStaffSelect = {
@@ -133,6 +145,18 @@ const medicalStaffSelect = {
     department: true,
     status: true,
     isAvailable: true,
+    phone: true,
+    email: true,
+    unitId: true,
+    userId: true,
+    user: {
+        select: {
+            id: true,
+            email: true,
+            isActive: true,
+            role: { select: { name: true } }
+        }
+    },
     currentWorkload: true,
     capacity: true,
     shiftStart: true,
@@ -168,12 +192,13 @@ const ensureStaff = async (db, tenantId, unitId, staffId) => {
         where: {
             id: staffId,
             tenantId,
-            unitId,
             isDeleted: false
         },
         select: {
             id: true,
             unitId: true,
+            firstName: true,
+            lastName: true,
             designation: true,
             department: true,
             capacity: true,
@@ -182,7 +207,7 @@ const ensureStaff = async (db, tenantId, unitId, staffId) => {
     });
 
     if (!staff) {
-        throw buildHttpError('Staff member not found for this unit', 404);
+        throw buildHttpError('Staff member not found in this organization', 404);
     }
 
     return staff;
@@ -191,7 +216,10 @@ const ensureStaff = async (db, tenantId, unitId, staffId) => {
 const ensureScopedReference = async (db, modelName, tenantId, unitId, id, label, supportsSoftDelete = true) => {
     if (!id) return null;
 
-    const where = { id, tenantId, unitId };
+    const where = { id, tenantId };
+    if (unitId && unitId !== 'ALL' && unitId !== '*') {
+        where.unitId = unitId;
+    }
     if (supportsSoftDelete) where.isDeleted = false;
 
     const record = await db[modelName].findFirst({
@@ -200,7 +228,7 @@ const ensureScopedReference = async (db, modelName, tenantId, unitId, id, label,
     });
 
     if (!record) {
-        throw buildHttpError(`${label} not found for this unit`, 404);
+        throw buildHttpError(`${label} was not found in this organization`, 404);
     }
 
     return record;
@@ -216,7 +244,17 @@ const validateAssignmentRelationships = async (db, tenantId, staff, data) => {
             throw buildHttpError('Patient not found.', 404);
         }
         if (patient.unitId !== staff.unitId) {
-            throw buildHttpError('Staff and patient must belong to the same unit.', 400);
+            const activeAdmission = await db.admission.findFirst({
+                where: {
+                    patientId: patient.id,
+                    tenantId,
+                    status: 'ACTIVE'
+                },
+                select: { id: true }
+            });
+            if (!activeAdmission) {
+                throw buildHttpError('Patient must have an active admission.', 400);
+            }
         }
     }
 
@@ -234,9 +272,9 @@ const validateAssignmentRelationships = async (db, tenantId, staff, data) => {
     }
 
     await Promise.all([
-        ensureScopedReference(db, 'admission', tenantId, staff.unitId, data.admissionId, 'Admission', false),
-        ensureScopedReference(db, 'enquiry', tenantId, staff.unitId, data.enquiryId, 'Enquiry'),
-        ensureScopedReference(db, 'task', tenantId, staff.unitId, data.taskId, 'Task')
+        ensureScopedReference(db, 'admission', tenantId, null, data.admissionId, 'Admission', false),
+        ensureScopedReference(db, 'enquiry', tenantId, null, data.enquiryId, 'Enquiry'),
+        ensureScopedReference(db, 'task', tenantId, null, data.taskId, 'Task')
     ]);
 };
 
@@ -390,31 +428,62 @@ export const createMedicalAssignment = async (tenantId, unitId, userId, data) =>
             where: { id: assignment.id },
             include: assignmentInclude
         }));
+    }, {
+        timeout: 15000,
+        maxWait: 5000
     });
 };
 
 export const getMedicalStaff = async (tenantId, unitId) => {
-    return prisma.staff.findMany({
-        where: {
-            tenantId,
-            unitId,
-            isDeleted: false,
-            OR: medicalStaffFilters
-        },
-        select: medicalStaffSelect,
-        orderBy: [
-            { currentWorkload: 'asc' },
-            { firstName: 'asc' }
-        ]
-    });
+    const baseWhere = {
+        tenantId,
+        isDeleted: false,
+        userId: { not: null },
+        NOT: [
+            { empId: { startsWith: 'SEED' } },
+            { empId: { startsWith: 'DEMO' } }
+        ],
+        OR: medicalStaffFilters
+    };
+
+    let staff = [];
+    if (unitId && unitId !== 'ALL' && unitId !== '*') {
+        staff = await prisma.staff.findMany({
+            where: {
+                ...baseWhere,
+                unitId
+            },
+            select: medicalStaffSelect,
+            orderBy: [
+                { currentWorkload: 'asc' },
+                { firstName: 'asc' }
+            ]
+        });
+    }
+
+    // If unit has no manual staff with login, or in facility-wide mode, return all manual staff with login
+    if (staff.length === 0) {
+        staff = await prisma.staff.findMany({
+            where: baseWhere,
+            select: medicalStaffSelect,
+            orderBy: [
+                { currentWorkload: 'asc' },
+                { firstName: 'asc' }
+            ]
+        });
+    }
+
+    return staff;
 };
 
 export const getMedicalAssignments = async (tenantId, unitId, filters = {}) => {
     const where = {
         tenantId,
-        unitId,
         isDeleted: false
     };
+    if (unitId && unitId !== 'ALL' && unitId !== '*') {
+        where.unitId = unitId;
+    }
 
     if (filters.activeOnly && !filters.status) {
         where.status = { in: ACTIVE_STATUSES };
@@ -427,6 +496,13 @@ export const getMedicalAssignments = async (tenantId, unitId, filters = {}) => {
     if (filters.allocationId) where.allocationId = filters.allocationId;
     if (filters.dutyType) {
         where.dutyType = { contains: filters.dutyType, mode: 'insensitive' };
+    }
+
+    if (filters.homeCare) {
+        where.OR = [
+            { Allocation: { is: { type: 'HOME_CARE', isDeleted: false } } },
+            { dutyType: { contains: 'HOME_CARE', mode: 'insensitive' } }
+        ];
     }
 
     if (filters.from || filters.to) {
@@ -582,6 +658,9 @@ export const updateMedicalAssignment = async (tenantId, unitId, id, data) => {
             where: { id: assignment.id },
             include: assignmentInclude
         }));
+    }, {
+        timeout: 15000,
+        maxWait: 5000
     });
 };
 
@@ -659,7 +738,7 @@ export const verifyStaffAssignment = async (tenantId, unitId, user, patientId) =
     if (!user) return { authorized: false, reason: 'Unauthenticated' };
     
     const userRole = String(user.role || user.roleName || '').trim().toUpperCase();
-    const privilegedRoles = ['SUPER_ADMIN', 'NURSING_MANAGER', 'MEDICAL_MANAGER'];
+    const privilegedRoles = ['SUPER_ADMIN', 'NURSING_MANAGER', 'MEDICAL_MANAGER', 'CARE_ALLOCATION_MANAGER', 'HOME_CARE_MANAGER'];
     const permissions = user.permissions || [];
     
     if (privilegedRoles.includes(userRole) || permissions.includes('ALL_ACCESS')) {

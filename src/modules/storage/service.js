@@ -23,7 +23,7 @@ export const upload = multer({
 
 import { prisma } from '../../app/prisma.js';
 
-export const saveFileMetadata = async ({ fileName, fileUrl, fileType, fileSize, entityType, entityId, tenantId, unitId }) => {
+export const saveFileMetadata = async ({ fileName, fileUrl, fileType, fileSize, entityType, entityId, category, tenantId, unitId }) => {
     return prisma.fileStorage.create({
         data: {
             fileName,
@@ -32,6 +32,7 @@ export const saveFileMetadata = async ({ fileName, fileUrl, fileType, fileSize, 
             fileSize,
             entityType,
             entityId,
+            category: category || null,
             tenantId,
             unitId
         }

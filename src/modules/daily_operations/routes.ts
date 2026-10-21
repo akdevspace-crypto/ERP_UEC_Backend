@@ -734,7 +734,7 @@ router.patch('/tasks/:id', auth, enforceTenant, async (req: any, res: any) => {
         }
 
         const userRole = String(req.user.role || req.user.roleName || '').trim().toUpperCase();
-        const privilegedRoles = ['SUPER_ADMIN', 'NURSING_MANAGER', 'MEDICAL_MANAGER', 'ELDER_OPERATIONS_MANAGER', 'CARE_ALLOCATION_MANAGER'];
+        const privilegedRoles = ['SUPER_ADMIN', 'NURSING_MANAGER', 'MEDICAL_MANAGER', 'ELDER_OPERATIONS_MANAGER', 'CARE_ALLOCATION_MANAGER', 'HOME_CARE_MANAGER'];
         if (!privilegedRoles.includes(userRole) && !(req.user.permissions || []).includes('ALL_ACCESS')) {
             if (!current.patientId) {
                 // Visit/External duty - Authorize via direct Staff ownership across tenant

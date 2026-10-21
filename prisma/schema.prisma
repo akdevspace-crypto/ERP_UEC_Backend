@@ -28,32 +28,36 @@ model Tenant {
   Project               Project[]
   FundingAllocation     FundingAllocation[]
   ProjectExpenditure    ProjectExpenditure[]
+  ambulanceVehicles     AmbulanceVehicle[]
+  ambulanceTrips        AmbulanceTrip[]
 
   @@index([isActive])
 }
 
 model Unit {
-  id         String    @id @default(uuid())
-  name       String
-  code       String    @unique
-  logoUrl    String?
-  shortName  String?
-  unitType   String?
-  locationId String
-  address    String?
-  pincode    String?
-  email      String?
-  phone      String?
-  timezone   String?
-  status     Boolean   @default(true)
-  tenantId   String?
-  isDeleted  Boolean   @default(false)
-  deletedAt  DateTime?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  location   Location  @relation(fields: [locationId], references: [id])
-  tenant     Tenant?   @relation(fields: [tenantId], references: [id])
-  users      User[]
+  id                String             @id @default(uuid())
+  name              String
+  code              String             @unique
+  logoUrl           String?
+  shortName         String?
+  unitType          String?
+  locationId        String
+  address           String?
+  pincode           String?
+  email             String?
+  phone             String?
+  timezone          String?
+  status            Boolean            @default(true)
+  tenantId          String?
+  isDeleted         Boolean            @default(false)
+  deletedAt         DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  location          Location           @relation(fields: [locationId], references: [id])
+  tenant            Tenant?            @relation(fields: [tenantId], references: [id])
+  users             User[]
+  ambulanceVehicles AmbulanceVehicle[]
+  ambulanceTrips    AmbulanceTrip[]
 
   @@index([tenantId])
   @@index([locationId])
@@ -111,6 +115,8 @@ model User {
   id                           String                  @id @default(uuid())
   email                        String?                 @unique
   passwordHash                 String?
+  mustChangePassword           Boolean                 @default(false)
+  tokenVersion                 Int                     @default(0)
   createdAt                    DateTime                @default(now())
   updatedAt                    DateTime                @updatedAt
   deletedAt                    DateTime?
@@ -130,6 +136,7 @@ model User {
   role                         Role?                   @relation(fields: [roleId], references: [id])
   tenant                       Tenant?                 @relation(fields: [tenantId], references: [id])
   unit                         Unit?                   @relation(fields: [unitId], references: [id])
+  passwordResetTokens          PasswordResetToken[]
   notifications                Notification[]
   ServiceContract              ServiceContract[]
   medicalApprovals             ServiceClosure[]        @relation("MedicalClosureApprover")
@@ -151,52 +158,67 @@ model User {
   @@index([isActive])
 }
 
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  isUsed    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
 model Staff {
-  id                String                  @id @default(uuid())
-  empId             String                  @unique
-  firstName         String
-  lastName          String?
-  designation       String?
-  department        String?
-  phone             String?
-  email             String?
-  joiningDate       DateTime?
-  status            String                  @default("Working")
-  photoUrl          String?
-  userId            String?                 @unique
-  metadata          Json?
-  skills            String[]                @default([])
-  location          String?
-  isAvailable       Boolean                 @default(true)
-  performanceScore  Float                   @default(50)
-  workload          Int                     @default(0)
-  currentWorkload   Int                     @default(0)
-  latitude          Float?
-  longitude         Float?
-  shiftStart        String?
-  shiftEnd          String?
-  capacity          Int                     @default(5)
-  stressLevel       Float                   @default(0)
-  lastActiveAt      DateTime?
-  tenantId          String
-  unitId            String
-  isDeleted         Boolean                 @default(false)
-  deletedAt         DateTime?
-  createdAt         DateTime                @default(now())
-  updatedAt         DateTime                @updatedAt
-  allocations       Allocation[]
-  MedicalAssignment MedicalAssignment[]
-  user              User?                   @relation(fields: [userId], references: [id])
-  outingCompanions  ResidentOutingRequest[]
-  assignedTasks     Task[]
-  documents         StaffDocument[]
-  attendanceLogs    AttendanceLog[]
-  leaveRequests     LeaveRequest[]
-  incidentLogs      StaffIncidentLog[]
-  payrollRecords    PayrollRecord[]
-  salary            StaffSalary?
-  dailyMovements    StaffDailyMovement[]
-  tripCompanions    StaffGateTrip[]         @relation("StaffTripCompanion")
+  id                      String                  @id @default(uuid())
+  empId                   String                  @unique
+  firstName               String
+  lastName                String?
+  designation             String?
+  department              String?
+  phone                   String?
+  email                   String?
+  joiningDate             DateTime?
+  status                  String                  @default("Working")
+  photoUrl                String?
+  userId                  String?                 @unique
+  metadata                Json?
+  skills                  String[]                @default([])
+  location                String?
+  isAvailable             Boolean                 @default(true)
+  performanceScore        Float                   @default(50)
+  workload                Int                     @default(0)
+  currentWorkload         Int                     @default(0)
+  latitude                Float?
+  longitude               Float?
+  shiftStart              String?
+  shiftEnd                String?
+  capacity                Int                     @default(5)
+  stressLevel             Float                   @default(0)
+  lastActiveAt            DateTime?
+  tenantId                String
+  unitId                  String
+  isDeleted               Boolean                 @default(false)
+  deletedAt               DateTime?
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime                @updatedAt
+  allocations             Allocation[]
+  MedicalAssignment       MedicalAssignment[]
+  user                    User?                   @relation(fields: [userId], references: [id])
+  outingCompanions        ResidentOutingRequest[]
+  assignedTasks           Task[]
+  documents               StaffDocument[]
+  attendanceLogs          AttendanceLog[]
+  leaveRequests           LeaveRequest[]
+  incidentLogs            StaffIncidentLog[]
+  payrollRecords          PayrollRecord[]
+  salary                  StaffSalary?
+  dailyMovements          StaffDailyMovement[]
+  tripCompanions          StaffGateTrip[]         @relation("StaffTripCompanion")
+  ambulanceTripsAsDriver  AmbulanceTrip[]         @relation("AmbulanceTripDriver")
+  ambulanceTripsAsSupport AmbulanceTrip[]         @relation("AmbulanceTripSupportStaff")
 
   @@index([tenantId])
   @@index([unitId])
@@ -465,6 +487,7 @@ model Admission {
   serviceContract   ServiceContract?
   serviceClosure    ServiceClosure?
   allocation        Allocation?
+  consents          ResidentConsent[]
 
   @@index([tenantId])
   @@index([unitId])
@@ -691,6 +714,7 @@ model FileStorage {
   fileSize   Int
   entityType String?
   entityId   String?
+  category   String?
   tenantId   String
   unitId     String
   isDeleted  Boolean   @default(false)
@@ -818,6 +842,11 @@ model Vendor {
   deletedAt DateTime?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+  purchases         Purchase[]
+  purchaseOrders    PurchaseOrder[]
+  goodsReceiptNotes GoodsReceiptNote[]
+  supplierReturns   SupplierReturn[]
+  vendorBills       VendorBill[]
 
   @@index([tenantId])
   @@index([unitId])
@@ -879,6 +908,7 @@ model VitalSign {
   spO2              Int?
   bloodSugar        String?
   notes             String?
+  photoUrl          String?
   shift             String?
   recordedAt        DateTime           @default(now())
   department        String?
@@ -1268,39 +1298,44 @@ model OutboundCampaign {
 }
 
 model Patient {
-  id                  String                  @id @default(uuid())
-  elderId             String?                 @unique
-  name                String
-  dob                 String?
-  age                 Int?
-  gender              String?
-  bloodGroup          String?
-  primaryContact      String?
-  emergencyContact    String?
-  email               String?
-  phone               String?
-  address             String?
-  tenantId            String
-  unitId              String
-  createdAt           DateTime                @default(now())
-  updatedAt           DateTime                @updatedAt
-  admissions          Admission[]
-  laundries           Laundry[]
-  MedicalAssignment   MedicalAssignment[]
-  medications         Medication[]
-  nutritions          Nutrition[]
-  timelines           ResidentTimeline[]
-  vitals              VitalSign[]
-  prescriptions       Prescription[]
-  medicationLogs      MedicationLog[]
-  doctorVisits        DoctorVisit[]
-  adlRecords          ADLRecord[]
-  incidents           Incident[]
-  stockIssueRequests  StockIssueRequest[]
-  FacilityVisit       FacilityVisit[]
-  dailyOperationTasks DailyOperationTask[]
-  outingRequests      ResidentOutingRequest[]
-  gateMovements       ResidentGateMovement[]
+  id                          String                       @id @default(uuid())
+  elderId                     String?                      @unique
+  name                        String
+  dob                         String?
+  age                         Int?
+  gender                      String?
+  bloodGroup                  String?
+  primaryContact              String?
+  emergencyContact            String?
+  email                       String?
+  phone                       String?
+  address                     String?
+  tenantId                    String
+  unitId                      String
+  createdAt                   DateTime                     @default(now())
+  updatedAt                   DateTime                     @updatedAt
+  admissions                  Admission[]
+  laundries                   Laundry[]
+  MedicalAssignment           MedicalAssignment[]
+  medications                 Medication[]
+  nutritions                  Nutrition[]
+  nutritionRecords            NutritionRecord[]
+  timelines                   ResidentTimeline[]
+  vitals                      VitalSign[]
+  prescriptions               Prescription[]
+  medicationLogs              MedicationLog[]
+  doctorVisits                DoctorVisit[]
+  adlRecords                  ADLRecord[]
+  incidents                   Incident[]
+  stockIssueRequests          StockIssueRequest[]
+  FacilityVisit               FacilityVisit[]
+  dailyOperationTasks         DailyOperationTask[]
+  outingRequests              ResidentOutingRequest[]
+  gateMovements               ResidentGateMovement[]
+  vitalMonitoringRequirements VitalMonitoringRequirement[]
+  patientAttentions           PatientAttention[]
+  consents                    ResidentConsent[]
+  AmbulanceTrip               AmbulanceTrip[]
 
   @@index([tenantId])
   @@index([unitId])
@@ -1343,23 +1378,26 @@ model Medication {
 }
 
 model Prescription {
-  id           String    @id @default(uuid())
-  patientId    String
-  doctorId     String?
-  medication   String
-  dosage       String
-  frequency    String
-  startDate    DateTime
-  endDate      DateTime?
-  instructions String?
-  isRestricted Boolean   @default(false)
-  isApproved   Boolean   @default(true)
-  approvedBy   String?
-  tenantId     String
-  unitId       String
-  patient      Patient   @relation(fields: [patientId], references: [id])
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id                 String              @id @default(uuid())
+  patientId          String
+  doctorId           String?
+  medication         String
+  dosage             String
+  frequency          String
+  startDate          DateTime
+  endDate            DateTime?
+  instructions       String?
+  isRestricted       Boolean             @default(false)
+  isApproved         Boolean             @default(true)
+  approvedBy         String?
+  tenantId           String
+  unitId             String
+  patient            Patient             @relation(fields: [patientId], references: [id])
+  productId          String?
+  product            Product?            @relation(fields: [productId], references: [id])
+  stockIssueRequests StockIssueRequest[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
 }
 
 model MedicationLog {
@@ -1410,6 +1448,30 @@ model Nutrition {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
   patient             Patient  @relation(fields: [patientId], references: [id])
+}
+
+model NutritionRecord {
+  id           String   @id @default(uuid())
+  patientId    String
+  assignmentId String?
+  meal         String
+  careDate     DateTime @db.Date
+  status       String
+  remarks      String?
+  recordedBy   String
+  recordedAt   DateTime @default(now())
+
+  tenantId  String   @default("default")
+  unitId    String   @default("default")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patient    Patient            @relation(fields: [patientId], references: [id])
+  assignment MedicalAssignment? @relation(fields: [assignmentId], references: [id])
+
+  @@unique([patientId, meal, careDate])
+  @@index([tenantId])
+  @@index([unitId])
 }
 
 model Maintenance {
@@ -1466,6 +1528,7 @@ model WasteLog {
 
 model Product {
   id                      String              @id @default(uuid())
+  code                    String?
   name                    String
   category                String
   subCategory             String?
@@ -1477,6 +1540,7 @@ model Product {
   minStockLevel           Float               @default(0)
   isBatchTracked          Boolean             @default(false)
   defaultRevenuePrice     Float               @default(0)
+  averageCost             Float?              @default(0)
   chargeableInCareRevenue Boolean             @default(false)
   status                  Boolean             @default(true)
   purchases               Purchase[]
@@ -1484,7 +1548,14 @@ model Product {
   productBatches          ProductBatch[]
   stockMovements          StockMovement[]
   StockIssueRequest       StockIssueRequest[]
+  prescriptions           Prescription[]
+  purchaseOrderItems      PurchaseOrderItem[]
+  goodsReceiptItems       GoodsReceiptItem[]
+  supplierReturnItems     SupplierReturnItem[]
+  vendorBillItems         VendorBillItem[]
+  physicalCounts          PhysicalCount[]
 
+  @@unique([tenantId, code])
   @@index([tenantId])
   @@index([unitId])
   @@index([chargeableInCareRevenue])
@@ -1511,6 +1582,7 @@ model ProductBatch {
   batchNumber String
   expiryDate  DateTime
   quantity    Int
+  unitCost    Float?   @default(0)
   tenantId    String
   unitId      String
   createdAt   DateTime @default(now())
@@ -1518,7 +1590,10 @@ model ProductBatch {
 
   product        Product         @relation(fields: [productId], references: [id])
   stockMovements StockMovement[]
-  purchases      Purchase[]
+  purchases         Purchase[]
+  goodsReceiptItems GoodsReceiptItem[]
+  supplierReturnItems SupplierReturnItem[]
+  physicalCounts      PhysicalCount[]
 
   @@unique([productId, batchNumber, tenantId, unitId])
   @@index([tenantId])
@@ -1531,6 +1606,7 @@ model Purchase {
   productId String
   quantity  Int
   vendor    String
+  vendorId  String?
   tenantId  String
   unitId    String
   batchId   String?
@@ -1538,9 +1614,254 @@ model Purchase {
   updatedAt DateTime      @updatedAt
   product   Product       @relation(fields: [productId], references: [id])
   batch     ProductBatch? @relation(fields: [batchId], references: [id])
+  Vendor    Vendor?       @relation(fields: [vendorId], references: [id])
 
   @@index([tenantId])
   @@index([unitId])
+  @@index([vendorId])
+}
+
+model PurchaseOrder {
+  id                   String              @id @default(uuid())
+  orderNumber          String
+  vendorId             String
+  status               String              @default("DRAFT")
+  orderDate            DateTime            @default(now())
+  expectedDeliveryDate DateTime?
+  notes                String?
+  subtotal             Float?              @default(0)
+  taxAmount            Float?              @default(0)
+  totalAmount          Float?              @default(0)
+  currency             String?             @default("INR")
+  tenantId             String
+  unitId               String
+  createdById          String?
+  createdByName        String?
+  approvedById         String?
+  approvedByName       String?
+  approvedAt           DateTime?
+  isDeleted            Boolean             @default(false)
+  deletedAt            DateTime?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  vendor        Vendor              @relation(fields: [vendorId], references: [id])
+  items         PurchaseOrderItem[]
+  goodsReceipts GoodsReceiptNote[]
+
+  @@unique([orderNumber, tenantId])
+  @@index([tenantId])
+  @@index([unitId])
+  @@index([vendorId])
+  @@index([status])
+  @@index([orderDate])
+}
+
+model PurchaseOrderItem {
+  id               String             @id @default(uuid())
+  purchaseOrderId  String
+  productId        String
+  orderedQuantity  Int
+  receivedQuantity Int                @default(0)
+  unitPrice        Float?             @default(0)
+  taxRate          Float?             @default(0)
+  taxAmount        Float?             @default(0)
+  totalAmount      Float?             @default(0)
+  status           String             @default("PENDING")
+  notes            String?
+  tenantId         String
+  unitId           String
+  isDeleted        Boolean            @default(false)
+  deletedAt        DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  purchaseOrder PurchaseOrder      @relation(fields: [purchaseOrderId], references: [id])
+  product       Product            @relation(fields: [productId], references: [id])
+  receiptItems  GoodsReceiptItem[]
+
+  @@index([purchaseOrderId])
+  @@index([productId])
+  @@index([tenantId])
+  @@index([unitId])
+  @@index([status])
+}
+
+model GoodsReceiptNote {
+  id                String             @id @default(uuid())
+  grnNumber         String
+  purchaseOrderId   String
+  vendorId          String
+  idempotencyKey    String?
+  receivedDate      DateTime           @default(now())
+  deliveryChallanNo String?
+  supplierInvoiceNo String?
+  invoiceNo         String?
+  invoiceDate       DateTime?
+  totalAmount       Float?             @default(0)
+  notes             String?
+  receivedById      String?
+  receivedByName    String?
+  tenantId          String
+  unitId            String
+  isDeleted         Boolean            @default(false)
+  deletedAt         DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  purchaseOrder PurchaseOrder      @relation(fields: [purchaseOrderId], references: [id])
+  vendor        Vendor             @relation(fields: [vendorId], references: [id])
+  items         GoodsReceiptItem[]
+
+  @@unique([grnNumber, tenantId])
+  @@unique([idempotencyKey, tenantId])
+  @@index([purchaseOrderId])
+  @@index([vendorId])
+  @@index([tenantId])
+  @@index([unitId])
+  @@index([receivedDate])
+  @@index([idempotencyKey])
+}
+
+model GoodsReceiptItem {
+  id                  String            @id @default(uuid())
+  goodsReceiptNoteId  String
+  purchaseOrderItemId String
+  productId           String
+  receivedQuantity    Int
+  rejectedQuantity    Int               @default(0)
+  unitCost            Float?            @default(0)
+  taxRate             Float?            @default(0)
+  taxAmount           Float?            @default(0)
+  totalCost           Float?            @default(0)
+  batchNumber         String?
+  expiryDate          DateTime?
+  batchId             String?
+  stockMovementId     String?
+  notes               String?
+  tenantId            String
+  unitId              String
+  isDeleted           Boolean           @default(false)
+  deletedAt           DateTime?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  goodsReceiptNote  GoodsReceiptNote  @relation(fields: [goodsReceiptNoteId], references: [id])
+  purchaseOrderItem PurchaseOrderItem @relation(fields: [purchaseOrderItemId], references: [id])
+  product           Product           @relation(fields: [productId], references: [id])
+  batch             ProductBatch?     @relation(fields: [batchId], references: [id])
+
+  @@index([goodsReceiptNoteId])
+  @@index([purchaseOrderItemId])
+  @@index([productId])
+  @@index([batchId])
+  @@index([stockMovementId])
+  @@index([tenantId])
+  @@index([unitId])
+}
+
+model SupplierReturn {
+  id              String               @id @default(uuid())
+  returnNumber    String
+  vendorId        String
+  sourceType      String               @default("GRN")
+  sourceReference String?
+  grnId           String?
+  purchaseId      String?
+  idempotencyKey  String?
+  returnDate      DateTime             @default(now())
+  reason          String
+  status          String               @default("COMPLETED")
+  totalQuantity   Int
+  notes           String?
+  returnedById    String?
+  returnedByName  String?
+  tenantId        String
+  unitId          String
+  isDeleted       Boolean              @default(false)
+  deletedAt       DateTime?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  vendor Vendor               @relation(fields: [vendorId], references: [id])
+  items  SupplierReturnItem[]
+
+  @@unique([returnNumber, tenantId])
+  @@unique([idempotencyKey, tenantId])
+  @@index([tenantId])
+  @@index([unitId])
+  @@index([vendorId])
+  @@index([returnDate])
+  @@index([grnId])
+  @@index([purchaseId])
+  @@index([idempotencyKey])
+}
+
+model SupplierReturnItem {
+  id               String         @id @default(uuid())
+  supplierReturnId String
+  productId        String
+  batchId          String?
+  batchNumber      String?
+  expiryDate       DateTime?
+  returnQuantity   Int
+  unitCost         Float?         @default(0)
+  totalCost        Float?         @default(0)
+  reason           String?
+  stockMovementId  String?
+  tenantId         String
+  unitId           String
+  isDeleted        Boolean        @default(false)
+  deletedAt        DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  supplierReturn SupplierReturn @relation(fields: [supplierReturnId], references: [id])
+  product        Product        @relation(fields: [productId], references: [id])
+  batch          ProductBatch?  @relation(fields: [batchId], references: [id])
+
+  @@index([supplierReturnId])
+  @@index([productId])
+  @@index([batchId])
+  @@index([tenantId])
+  @@index([unitId])
+}
+
+model PhysicalCount {
+  id                      String        @id @default(uuid())
+  auditNumber             String
+  productId               String
+  batchId                 String?
+  batchNumber             String?
+  systemQuantityAtCount   Int
+  physicalQuantity        Int?
+  variance                Int?
+  status                  String        @default("DRAFT") // DRAFT, COUNTED, RECONCILED, CANCELLED
+  reason                  String?
+  notes                   String?
+  countedById             String?
+  countedByName           String?
+  countedAt               DateTime?
+  reconciledById          String?
+  reconciledByName        String?
+  reconciledAt            DateTime?
+  reconciliationMovementId String?
+  tenantId                String
+  unitId                  String?
+  isDeleted               Boolean       @default(false)
+  deletedAt               DateTime?
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+
+  product                 Product       @relation(fields: [productId], references: [id])
+  batch                   ProductBatch? @relation(fields: [batchId], references: [id])
+
+  @@index([tenantId])
+  @@index([unitId])
+  @@index([productId])
+  @@index([batchId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model Invoice {
@@ -1637,11 +1958,18 @@ model Donation {
   preferredPrayerDate  DateTime?
   wishToVisitHome      Boolean             @default(false)
   honouredPersonImage  String?
+  reconciliationStatus String              @default("PENDING") // PENDING, CLEARED, RECONCILED, REVERSED
+  reconciledAt         DateTime?
+  reconciledById       String?
+  allocatedAmount      Float               @default(0)
   donor                Donor               @relation(fields: [donorId], references: [id])
   references           DonationReference[]
+  allocations          FundingAllocation[]
 
   @@index([tenantId, date])
   @@index([tenantId, receiptNo])
+  @@index([tenantId, reconciliationStatus])
+  @@index([unitId])
 }
 
 model DonationReference {
@@ -1730,36 +2058,39 @@ model ResidentTimeline {
 }
 
 model StockIssueRequest {
-  id           String    @id
-  productId    String
-  productName  String
-  category     String
-  quantity     Int
-  usageType    String
-  issuedTo     String?
-  notes        String?
-  status       String    @default("PENDING")
-  requestedBy  String?
-  requestedAt  DateTime  @default(now())
-  approvedBy   String?
-  approvedAt   DateTime?
-  rejectedBy   String?
-  rejectedAt   DateTime?
-  tenantId     String
-  unitId       String
-  isDeleted    Boolean   @default(false)
-  deletedAt    DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  allocationId String?
-  patientId    String?
-  patient      Patient?  @relation(fields: [patientId], references: [id])
-  rate         Float?
-  amount       Float?
-  Product      Product   @relation(fields: [productId], references: [id])
+  id             String        @id
+  productId      String
+  productName    String
+  category       String
+  quantity       Int
+  usageType      String
+  issuedTo       String?
+  notes          String?
+  status         String        @default("PENDING")
+  requestedBy    String?
+  requestedAt    DateTime      @default(now())
+  approvedBy     String?
+  approvedAt     DateTime?
+  rejectedBy     String?
+  rejectedAt     DateTime?
+  tenantId       String
+  unitId         String
+  isDeleted      Boolean       @default(false)
+  deletedAt      DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  allocationId   String?
+  patientId      String?
+  patient        Patient?      @relation(fields: [patientId], references: [id])
+  rate           Float?
+  amount         Float?
+  Product        Product       @relation(fields: [productId], references: [id])
+  prescriptionId String?
+  Prescription   Prescription? @relation(fields: [prescriptionId], references: [id])
 
   @@index([allocationId])
   @@index([productId])
+  @@index([prescriptionId])
   @@index([status])
   @@index([tenantId])
   @@index([unitId])
@@ -1967,40 +2298,43 @@ model DailyOperationTask {
 }
 
 model MedicalAssignment {
-  id                  String                  @id
-  refNo               String                  @unique
-  staffId             String
-  patientId           String?
-  admissionId         String?
-  enquiryId           String?
-  taskId              String?
-  allocationId        String?
-  dutyType            String                  @default("ROUND")
-  role                String?
-  location            String?
-  startAt             DateTime
-  endAt               DateTime?
-  status              MedicalAssignmentStatus @default(ASSIGNED)
-  priority            String                  @default("MEDIUM")
-  notes               String?
-  metadata            Json?
-  assignedById        String?
-  tenantId            String
-  unitId              String
-  isDeleted           Boolean                 @default(false)
-  deletedAt           DateTime?
-  createdAt           DateTime                @default(now())
-  updatedAt           DateTime                @updatedAt
-  Admission           Admission?              @relation(fields: [admissionId], references: [id])
-  Allocation          Allocation?             @relation(fields: [allocationId], references: [id])
-  Enquiry             Enquiry?                @relation(fields: [enquiryId], references: [id])
-  Patient             Patient?                @relation(fields: [patientId], references: [id])
-  Staff               Staff                   @relation(fields: [staffId], references: [id])
-  Task                Task?                   @relation(fields: [taskId], references: [id])
-  dailyOperationTasks DailyOperationTask[]
-  adlRecords          ADLRecord[]
-  vitalSigns          VitalSign[]
-  medicationLogs      MedicationLog[]
+  id                          String                       @id
+  refNo                       String                       @unique
+  staffId                     String
+  patientId                   String?
+  admissionId                 String?
+  enquiryId                   String?
+  taskId                      String?
+  allocationId                String?
+  dutyType                    String                       @default("ROUND")
+  role                        String?
+  location                    String?
+  startAt                     DateTime
+  endAt                       DateTime?
+  status                      MedicalAssignmentStatus      @default(ASSIGNED)
+  priority                    String                       @default("MEDIUM")
+  notes                       String?
+  metadata                    Json?
+  assignedById                String?
+  tenantId                    String
+  unitId                      String
+  isDeleted                   Boolean                      @default(false)
+  deletedAt                   DateTime?
+  createdAt                   DateTime                     @default(now())
+  updatedAt                   DateTime                     @updatedAt
+  nutritionRecords            NutritionRecord[]
+  Admission                   Admission?                   @relation(fields: [admissionId], references: [id])
+  Allocation                  Allocation?                  @relation(fields: [allocationId], references: [id])
+  Enquiry                     Enquiry?                     @relation(fields: [enquiryId], references: [id])
+  Patient                     Patient?                     @relation(fields: [patientId], references: [id])
+  Staff                       Staff                        @relation(fields: [staffId], references: [id])
+  Task                        Task?                        @relation(fields: [taskId], references: [id])
+  dailyOperationTasks         DailyOperationTask[]
+  adlRecords                  ADLRecord[]
+  vitalSigns                  VitalSign[]
+  medicationLogs              MedicationLog[]
+  vitalMonitoringRequirements VitalMonitoringRequirement[]
+  patientAttentions           PatientAttention[]
 
   @@index([admissionId])
   @@index([allocationId])
@@ -2132,6 +2466,8 @@ enum MedicalAssignmentStatus {
   ON_HOLD
   COMPLETED
   CANCELLED
+  WAITING_APPROVAL
+  APPROVED
 }
 
 // =======================
@@ -2326,37 +2662,71 @@ model Project {
 }
 
 model FundingAllocation {
-  id        String   @id @default(uuid())
-  projectId String
-  amount    Float
-  source    String?
-  notes     String?
-  date      DateTime @default(now())
-  tenantId  String
-  isDeleted Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id               String    @id @default(uuid())
+  projectId        String
+  unitId           String?
+  amount           Float
+  sourceType       String    @default("DONATION") // DONATION, GENERAL_FUND, GRANT, CSR_GRANT
+  sourceDonationId String?
+  sourceAccountId  String?
+  sourceReference  String?
+  source           String?   // preserved for backwards compatibility
+  notes            String?
+  idempotencyKey   String?
+  allocatedById    String?
+  date             DateTime  @default(now())
+  tenantId         String
+  isDeleted        Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  project Project @relation(fields: [projectId], references: [id])
-  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  project        Project   @relation(fields: [projectId], references: [id])
+  tenant         Tenant    @relation(fields: [tenantId], references: [id])
+  sourceDonation Donation? @relation(fields: [sourceDonationId], references: [id])
+
+  @@index([tenantId])
+  @@index([unitId])
+  @@index([projectId])
+  @@index([sourceDonationId])
+  @@index([tenantId, idempotencyKey])
 }
 
 model ProjectExpenditure {
-  id             String   @id @default(uuid())
-  projectId      String
-  amount         Float
-  description    String?
-  category       String?
-  date           DateTime @default(now())
-  approvalStatus String   @default("PENDING") // PENDING, APPROVED, REJECTED
-  approvedById   String?
-  tenantId       String
-  isDeleted      Boolean  @default(false)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                String    @id @default(uuid())
+  projectId         String
+  unitId            String?
+  amount            Float
+  description       String?
+  category          String?
+  date              DateTime  @default(now())
+  approvalStatus    String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  approvedById      String?
+  rejectionReason   String?
+  submittedById     String?
+  decidedAt         DateTime?
+  paymentStatus     String    @default("UNPAID") // UNPAID, PAYMENT_PENDING, PAID, CANCELLED
+  paymentVoucherRef String?
+  paymentMode       String?
+  paidAt            DateTime?
+  paidById          String?
+  justification     String?
+  receiptRef        String?
+  idempotencyKey    String?
+  tenantId          String
+  isDeleted         Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   project Project @relation(fields: [projectId], references: [id])
   tenant  Tenant  @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@index([unitId])
+  @@index([projectId])
+  @@index([approvalStatus])
+  @@index([paymentStatus])
+  @@index([paymentVoucherRef])
+  @@index([tenantId, idempotencyKey])
 }
 
 model Notification {
@@ -2708,4 +3078,302 @@ model VehicleMovement {
   @@index([entryAt])
   @@index([exitAt])
   @@index([tenantId, unitId, status])
+}
+
+// ==========================================
+// PHASE 2 NURSING MONITORING & ATTENTION
+// ==========================================
+
+model VitalMonitoringRequirement {
+  id                    String    @id @default(uuid())
+  patientId             String
+  assignmentId          String?
+  monitoringType        String    @default("VITALS")
+  frequency             String    @default("EVERY_4_HOURS")
+  customIntervalMinutes Int?
+  startAt               DateTime  @default(now())
+  endAt                 DateTime?
+  isActive              Boolean   @default(true)
+  notes                 String?
+  createdBy             String?
+  tenantId              String
+  unitId                String
+  isDeleted             Boolean   @default(false)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  patient    Patient            @relation(fields: [patientId], references: [id])
+  assignment MedicalAssignment? @relation(fields: [assignmentId], references: [id])
+
+  @@index([patientId, isActive])
+  @@index([tenantId, unitId])
+}
+
+model PatientAttention {
+  id              String    @id @default(uuid())
+  patientId       String
+  assignmentId    String?
+  category        String    @default("GENERAL_OBSERVATION")
+  priority        String    @default("MEDIUM")
+  observation     String
+  status          String    @default("OPEN")
+  createdBy       String?
+  resolvedById    String?
+  resolvedAt      DateTime?
+  resolutionNotes String?
+  tenantId        String
+  unitId          String
+  isDeleted       Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  patient    Patient            @relation(fields: [patientId], references: [id])
+  assignment MedicalAssignment? @relation(fields: [assignmentId], references: [id])
+
+  @@index([patientId, status])
+  @@index([tenantId, unitId])
+  @@index([priority, status])
+}
+
+model ResidentConsent {
+  id             String    @id @default(uuid())
+  patientId      String
+  admissionId    String?
+  consentType    String    @default("ADMISSION")
+  title          String
+  version        String    @default("1.0")
+  content        String?
+  status         String    @default("SIGNED")
+  signedByName   String
+  signerRelation String    @default("SELF")
+  signedAt       DateTime  @default(now())
+  signatureUrl   String?
+  notes          String?
+  ipAddress      String?
+  userAgent      String?
+  tenantId       String
+  unitId         String?
+  createdById    String?
+  isDeleted      Boolean   @default(false)
+  deletedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  patient   Patient    @relation(fields: [patientId], references: [id])
+  admission Admission? @relation(fields: [admissionId], references: [id])
+
+  @@unique([patientId, consentType, version])
+  @@index([patientId])
+  @@index([admissionId])
+  @@index([tenantId])
+  @@index([unitId])
+}
+
+enum AmbulanceVehicleStatus {
+  AVAILABLE
+  ON_TRIP
+  MAINTENANCE
+}
+
+enum AmbulanceTripStatus {
+  REQUESTED
+  DISPATCH_READY
+  DISPATCHED
+  EN_ROUTE
+  ARRIVED
+  COMPLETED
+  BILLED
+  CANCELLED
+}
+
+model AmbulanceVehicle {
+  id           String                 @id @default(uuid())
+  vehicleNo    String
+  type         String
+  status       AmbulanceVehicleStatus @default(AVAILABLE)
+  baseLocation String?
+  tenantId     String
+  unitId       String
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+
+  tenant Tenant          @relation(fields: [tenantId], references: [id])
+  unit   Unit            @relation(fields: [unitId], references: [id])
+  trips  AmbulanceTrip[]
+
+  @@unique([vehicleNo, tenantId, unitId])
+  @@index([tenantId])
+  @@index([unitId])
+}
+
+model AmbulanceTrip {
+  id             String              @id @default(uuid())
+  refNo          String              @unique
+  clientName     String?
+  mobile         String?
+  pickupLocation String?
+  destination    String?
+  priority       String?
+  status         AmbulanceTripStatus @default(REQUESTED)
+  dispatchTime   DateTime?
+  kmStart        Float?
+  kmEnd          Float?
+  tripNotes      String?
+  totalAmount    Float?
+
+  vehicleId      String?
+  driverId       String?
+  supportStaffId String?
+  patientId      String?
+  tenantId       String
+  unitId         String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant       Tenant            @relation(fields: [tenantId], references: [id])
+  unit         Unit              @relation(fields: [unitId], references: [id])
+  vehicle      AmbulanceVehicle? @relation(fields: [vehicleId], references: [id])
+  driver       Staff?            @relation("AmbulanceTripDriver", fields: [driverId], references: [id])
+  supportStaff Staff?            @relation("AmbulanceTripSupportStaff", fields: [supportStaffId], references: [id])
+  patient      Patient?          @relation(fields: [patientId], references: [id])
+
+  @@index([tenantId])
+  @@index([unitId])
+  @@index([status])
+  @@index([vehicleId])
+  @@index([driverId])
+  @@index([patientId])
+}
+
+
+model VendorBill {
+  id                   String           @id @default(uuid())
+  billNumber           String
+  vendorId             String
+  purchaseOrderId      String?
+  goodsReceiptNoteId   String?
+  billDate             DateTime         @default(now())
+  dueDate              DateTime?
+  status               String           @default("DRAFT")
+  subtotal             Float            @default(0)
+  taxAmount            Float            @default(0)
+  discountAmount       Float            @default(0)
+  totalAmount          Float            @default(0)
+  paidAmount           Float            @default(0)
+  balanceAmount        Float            @default(0)
+  notes                String?
+  idempotencyKey       String?
+  accountTransactionId String?
+  tenantId             String
+  unitId               String
+  isDeleted            Boolean          @default(false)
+  deletedAt            DateTime?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  vendor   Vendor           @relation(fields: [vendorId], references: [id])
+  items    VendorBillItem[]
+
+  @@unique([billNumber, tenantId])
+  @@unique([idempotencyKey, tenantId])
+  @@index([tenantId])
+  @@index([unitId])
+  @@index([vendorId])
+  @@index([status])
+  @@index([goodsReceiptNoteId])
+}
+
+model VendorBillItem {
+  id                 String     @id @default(uuid())
+  vendorBillId       String
+  productId          String
+  goodsReceiptItemId String?
+  quantity           Int
+  unitPrice          Float
+  taxRate            Float      @default(0)
+  taxAmount          Float      @default(0)
+  totalAmount        Float
+  tenantId           String
+  unitId             String
+  isDeleted          Boolean    @default(false)
+  deletedAt          DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  vendorBill VendorBill @relation(fields: [vendorBillId], references: [id])
+  product    Product    @relation(fields: [productId], references: [id])
+
+  @@index([vendorBillId])
+  @@index([productId])
+  @@index([tenantId])
+  @@index([unitId])
+}
+
+model GLAccount {
+  id            String   @id @default(uuid())
+  code          String
+  name          String
+  accountType   String
+  normalBalance String
+  description   String?
+  isActive      Boolean  @default(true)
+  tenantId      String
+  unitId        String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  lines JournalLine[]
+
+  @@unique([code, tenantId])
+  @@index([tenantId])
+  @@index([accountType])
+}
+
+model JournalEntry {
+  id              String        @id @default(uuid())
+  entryNumber     String
+  entryDate       DateTime      @default(now())
+  sourceModule    String
+  sourceReference String
+  description     String
+  status          String        @default("POSTED")
+  isReversed      Boolean       @default(false)
+  reversalOfId    String?
+  idempotencyKey  String?
+  tenantId        String
+  unitId          String
+  createdById     String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  lines JournalLine[]
+
+  @@unique([entryNumber, tenantId])
+  @@unique([idempotencyKey, tenantId])
+  @@index([tenantId])
+  @@index([unitId])
+  @@index([sourceReference])
+  @@index([status])
+}
+
+model JournalLine {
+  id             String       @id @default(uuid())
+  journalEntryId String
+  accountId      String
+  debit          Float        @default(0)
+  credit         Float        @default(0)
+  description    String?
+  tenantId       String
+  unitId         String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  journalEntry JournalEntry @relation(fields: [journalEntryId], references: [id])
+  account      GLAccount    @relation(fields: [accountId], references: [id])
+
+  @@index([journalEntryId])
+  @@index([accountId])
+  @@index([tenantId])
+  @@index([unitId])
 }

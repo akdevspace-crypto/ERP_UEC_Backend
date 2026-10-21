@@ -1,15 +1,18 @@
 import { prisma } from './src/app/prisma.js';
 
-async function check() {
-    try {
-        console.log("Checking DB connection...");
-        const result = await prisma.$queryRaw`SELECT 1`;
-        console.log("DB Connection SUCCESS:", result);
-    } catch (err) {
-        console.error("DB Connection FAILED:", err);
-    } finally {
-        await prisma.$disconnect();
+async function main() {
+    const shnStaff = await prisma.staff.findFirst({
+        where: { firstName: 'Shanmugapriya' }
+    });
+    
+    const assignments = await prisma.medicalAssignment.findMany({
+        where: { staffId: shnStaff.id }
+    });
+    
+    console.log(`Shanmugapriya Assignments: ${assignments.length}`);
+    for (const a of assignments) {
+        console.log(`- ID: ${a.id}, Created At: ${a.createdAt}`);
     }
 }
 
-check();
+main().finally(() => prisma.$disconnect());

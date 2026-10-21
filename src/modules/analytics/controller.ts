@@ -43,3 +43,15 @@ export const handleAnalyticsForecast = async (req: any, res: any, next: any) => 
         next(error);
     }
 };
+
+export const handleGetActivities = async (req: any, res: any, next: any) => {
+    try {
+        const { tenantId, unitId } = getRequestScope(req);
+        // @ts-ignore
+        const { getGlobalActivities } = await import("./service.js");
+        const result = await getGlobalActivities(tenantId, unitId);
+        return success(res, result);
+    } catch (error) {
+        next(error);
+    }
+};

@@ -213,7 +213,12 @@ export const listEnquiries = async (query, user) => {
 };
 
 export const getEnquiry = async (id, user) => {
-    const enquiry = await getEnquiryQuery(id, user.tenantId, canReadAllUnits(user) ? 'ALL' : user.unitId);
+    const hasFacilityWideAccess = canReadAllUnits(user) || (user.unitAccess && user.unitAccess.includes('*'));
+    const accessibleUnits = hasFacilityWideAccess 
+        ? 'ALL' 
+        : { in: [user.unitId, ...(user.unitAccess || [])].filter(Boolean) };
+        
+    const enquiry = await getEnquiryQuery(id, user.tenantId, accessibleUnits);
     if (!enquiry) return null;
 
     const [enriched] = await attachClientPortalAccess([enquiry], user.tenantId);
@@ -838,6 +843,7 @@ export const upsertEnquiryClientPortalAccess = async (enquiryId, data, user) => 
 
             if (suppliedPassword) {
                 updateData.passwordHash = await bcrypt.hash(suppliedPassword, 10);
+                updateData.tokenVersion = { increment: 1 };
             }
 
             portalUser = await tx.user.update({

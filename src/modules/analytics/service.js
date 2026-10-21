@@ -316,13 +316,13 @@ const organizationDefinitions = {
         kpis: async (tenantId, unitId) => {
             const where = liveWhere(tenantId, unitId);
             const [bookings, dispatchTasks, fieldDuty, emergencyCalls, missedCalls, billing, maintenance, staff] = await Promise.all([
-                readKPIValue(() => prisma.task.count({ where: { ...where, title: { contains: "ambulance", mode: "insensitive" } } }), 0),
-                readKPIValue(() => prisma.task.count({ where: { ...where, status: { in: ["ASSIGNED", "IN_PROGRESS"] }, OR: [{ title: { contains: "dispatch", mode: "insensitive" } }, { type: { contains: "DISPATCH", mode: "insensitive" } }] } }), 0),
-                readKPIValue(() => prisma.task.count({ where: { ...where, OR: [{ title: { contains: "field", mode: "insensitive" } }, { type: { contains: "FIELD", mode: "insensitive" } }] } }), 0),
+                readKPIValue(() => prisma.ambulanceTrip.count({ where: baseWhere(tenantId, unitId) }), 0),
+                readKPIValue(() => prisma.ambulanceTrip.count({ where: { ...baseWhere(tenantId, unitId), status: { in: ["REQUESTED", "DISPATCH_READY", "DISPATCHED"] } } }), 0),
+                readKPIValue(() => prisma.ambulanceTrip.count({ where: { ...baseWhere(tenantId, unitId), status: { in: ["EN_ROUTE", "ARRIVED"] } } }), 0),
                 readKPIValue(() => prisma.callHistory.count({ where: { ...baseWhere(tenantId, unitId), direction: "inbound" } }), 0),
                 readKPIValue(() => prisma.callHistory.count({ where: { ...baseWhere(tenantId, unitId), status: "missed" } }), 0),
-                readKPIValue(() => prisma.accountTransaction.aggregate({ _sum: { amount: true }, where: { ...where, type: "INVOICE" } }), { _sum: { amount: 0 } }),
-                readKPIValue(() => prisma.maintenance.count({ where: { ...baseWhere(tenantId, unitId), type: { contains: "ambulance", mode: "insensitive" } } }), 0),
+                readKPIValue(() => prisma.accountTransaction.aggregate({ _sum: { amount: true }, where: { ...where, type: "INVOICE", category: "Ambulance Services" } }), { _sum: { amount: 0 } }),
+                readKPIValue(() => prisma.ambulanceVehicle.count({ where: { ...baseWhere(tenantId, unitId), status: "MAINTENANCE" } }), 0),
                 readKPIValue(() => prisma.staff.count({ where: { tenantId, unitId, isAvailable: true } }), 0)
             ]);
 
@@ -342,10 +342,10 @@ const organizationDefinitions = {
             return Promise.all(windows.map(async (window) => ({
                 name: window.label,
                 calls: await countInWindow(prisma.callHistory, baseWhere(tenantId, unitId), window),
-                bookings: await countInWindow(prisma.task, { ...liveWhere(tenantId, unitId), title: { contains: "ambulance", mode: "insensitive" } }, window),
+                bookings: await countInWindow(prisma.ambulanceTrip, baseWhere(tenantId, unitId), window),
                 billing: (await readKPIValue(() => prisma.accountTransaction.aggregate({
                     _sum: { amount: true },
-                    where: { ...liveWhere(tenantId, unitId), type: "INVOICE", createdAt: { gte: window.start, lt: window.end } }
+                    where: { ...liveWhere(tenantId, unitId), type: "INVOICE", category: "Ambulance Services", createdAt: { gte: window.start, lt: window.end } }
                 }), { _sum: { amount: 0 } }))._sum.amount || 0
             })));
         }
@@ -447,3 +447,75 @@ export const cachedKPIs = async (key, fn) => {
 
     return data;
 };
+
+
+export const getGlobalActivities = async (tenantId, unitId) => {
+    const where = liveWhere(tenantId, unitId);
+    
+    const [trips, admissions, transactions, workflows] = await Promise.all([
+        readKPIValue(() => prisma.ambulanceTrip.findMany({
+            where,
+            orderBy: { createdAt: "desc" },
+            take: 10
+        }), []),
+        readKPIValue(() => prisma.admission.findMany({
+            where,
+            orderBy: { createdAt: "desc" },
+            take: 10
+        }), []),
+        readKPIValue(() => prisma.accountTransaction.findMany({
+            where,
+            orderBy: { createdAt: "desc" },
+            take: 10
+        }), []),
+        readKPIValue(() => prisma.workflowLog.findMany({
+            where,
+            orderBy: { createdAt: "desc" },
+            take: 10
+        }), [])
+    ]);
+
+    const activities = [
+        ...trips.map(t => ({
+            id: t.id,
+            type: 'AMBULANCE',
+            title: `Ambulance Dispatch`,
+            description: `Trip ${t.id.slice(-6).toUpperCase()}`,
+            status: t.status || 'NEW',
+            timestamp: t.createdAt,
+            source: 'UA'
+        })),
+        ...admissions.map(a => ({
+            id: a.id,
+            type: 'ADMISSION',
+            title: `New Admission`,
+            description: `Admission ${a.id.slice(-6).toUpperCase()}`,
+            status: a.status || 'NEW',
+            timestamp: a.createdAt,
+            source: 'UHC'
+        })),
+        ...transactions.map(t => ({
+            id: t.id,
+            type: 'FINANCE',
+            title: `${t.type === 'INVOICE' ? 'Invoice Generated' : 'Payment Received'}`,
+            description: `${t.category || 'Service'} - Rs ${t.amount || 0}`,
+            status: t.status || 'NEW',
+            timestamp: t.createdAt,
+            source: 'FINANCE'
+        })),
+        ...workflows.map(w => ({
+            id: w.id,
+            type: 'WORKFLOW',
+            title: `${w.entityType || 'Workflow'} Update`,
+            description: w.notes || `Moved to ${w.toState}`,
+            status: w.toState || 'NEW',
+            timestamp: w.createdAt,
+            source: 'WORKFLOW'
+        }))
+    ];
+
+    return activities
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        .slice(0, 10);
+};
+

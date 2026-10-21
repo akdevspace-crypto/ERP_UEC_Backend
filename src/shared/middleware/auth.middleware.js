@@ -4,7 +4,7 @@ import { runWithContext } from '../utils/context.js';
 import { canReadFacilityWide } from '../utils/rbac.js';
 import { resolveUserAccess } from '../../modules/auth/access.js';
 
-export const auth = async (req, res, next) => { console.log('AUTH HIT:', req.method, req.originalUrl); console.trace('Auth trace');
+export const auth = async (req, res, next) => {
     try {
         let token;
 
@@ -35,6 +35,7 @@ export const auth = async (req, res, next) => { console.log('AUTH HIT:', req.met
                 lastName: true,
                 isActive: true,
                 updatedAt: true,
+                mustChangePassword: true,
                 role: {
                     select: {
                         name: true
@@ -55,10 +56,13 @@ export const auth = async (req, res, next) => { console.log('AUTH HIT:', req.met
             return res.status(401).json({ success: false, message: 'Session expired. Please log in again.' });
         }
 
-        const tokenIssuedAtMs = typeof decoded.iat === 'number' ? decoded.iat * 1000 : 0;
-        // if (tokenIssuedAtMs && user.updatedAt.getTime() > tokenIssuedAtMs) {
-        //     return res.status(401).json({ success: false, message: 'Session expired. Please log in again.' });
-        // }
+        if (user.mustChangePassword && !req.originalUrl.endsWith('/change-temporary-password')) {
+            return res.status(403).json({ success: false, message: 'Password change required', code: 'PASSWORD_CHANGE_REQUIRED' });
+        }
+
+        if (decoded.tokenVersion !== user.tokenVersion) {
+            return res.status(401).json({ success: false, message: 'Session expired. Please log in again.' });
+        }
         
         // 🚀 Resolve explicit access controls (including StaffMenuPrivilege unit Access)
         const access = resolveUserAccess(user);
@@ -74,6 +78,7 @@ export const auth = async (req, res, next) => { console.log('AUTH HIT:', req.met
             name: [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.email || user.id,
             role: user.role?.name || decoded.role,
             staff: user.staff || null,
+            permissions: access.permissions || [],
             unitAccess: access.unitAccess || []
         };
 

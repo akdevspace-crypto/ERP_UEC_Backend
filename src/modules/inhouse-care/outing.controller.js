@@ -11,7 +11,7 @@ export const createOutingRequest = async (req, res) => {
 
         const data = parsed.data;
         const tenantId = req.user.tenantId;
-        const unitId = req.user.unitId;
+        const unitId = req.context?.unitId || req.user.unitId;
         const requestedByUserId = req.user.id;
 
         const request = await service.createOutingRequest(tenantId, unitId, requestedByUserId, data);
@@ -25,10 +25,13 @@ export const listOutingRequests = async (req, res) => {
     try {
         const filters = {
             status: req.query.status,
-            patientId: req.query.patientId,
-            unitId: req.query.unitId // Optional filter
+            patientId: req.query.patientId
         };
-        const requests = await service.getOutingRequests(req.user.tenantId, req.user.unitId, filters);
+        const requests = await service.getOutingRequests(
+            req.user.tenantId,
+            req.context?.unitId || req.user.unitId,
+            filters
+        );
         return successResponse(res, requests, 'Resident outing requests retrieved successfully');
     } catch (error) {
         return errorResponse(res, error.message, 500);
@@ -37,7 +40,11 @@ export const listOutingRequests = async (req, res) => {
 
 export const getOutingRequest = async (req, res) => {
     try {
-        const request = await service.getOutingRequestById(req.user.tenantId, req.params.id);
+        const request = await service.getOutingRequestById(
+            req.user.tenantId,
+            req.params.id,
+            req.context?.unitId || req.user.unitId
+        );
         if (!request) return errorResponse(res, 'Outing request not found', 404);
         return successResponse(res, request, 'Resident outing request retrieved successfully');
     } catch (error) {
@@ -57,7 +64,8 @@ export const processOutingApproval = async (req, res) => {
         const requestId = req.params.id;
         const approverId = req.user.id;
 
-        const result = await service.processOutingApproval(tenantId, requestId, approverId, action, comments);
+        const unitId = req.context?.unitId || req.user.unitId;
+        const result = await service.processOutingApproval(tenantId, requestId, approverId, action, comments, unitId);
         return successResponse(res, result, `Resident outing request ${action.toLowerCase()} successfully`);
     } catch (error) {
         return errorResponse(res, error.message, 500);
