@@ -39,7 +39,7 @@ const defaultFrontendOrigins = [
     'http://127.0.0.1:5180',
     'http://localhost:5181',
     'https://erp-uec-superadminapp.onrender.com',
-    'https://erp-uec-superadminapp-zulp.onrender.com'
+    'https://erp-uec-superadminapp-zulp.onrender.com',
     'http://127.0.0.1:5181'
 ];
 
