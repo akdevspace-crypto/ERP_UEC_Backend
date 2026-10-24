@@ -38,6 +38,7 @@ const defaultFrontendOrigins = [
     'http://localhost:5180',
     'http://127.0.0.1:5180',
     'http://localhost:5181',
+    'https://erp-uec-superadminapp.onrender.com',
     'http://127.0.0.1:5181'
 ];
 
