@@ -16,7 +16,7 @@ async function main() {
         process.env.JWT_SECRET || 'supersecretjwtkeyforerpsystem',
         { expiresIn: '1d' }
     );
-    
+
     // Set a very new iat for the token, manually modifying it
     const decoded = jwt.decode(token);
     const newToken = jwt.sign(
@@ -25,10 +25,10 @@ async function main() {
         { expiresIn: '1d' }
     );
 
-    console.log('Sending request to http://localhost:4000/api/patient-billing/entries?scope=all');
+    console.log('Sending request to https://erp-uec-backend.onrender.com/api/patient-billing/entries?scope=all');
     console.log('Token:', newToken.substring(0, 20) + '...');
 
-    const response = await fetch('http://localhost:4000/api/patient-billing/entries?scope=all', {
+    const response = await fetch('https://erp-uec-backend.onrender.com/api/patient-billing/entries?scope=all', {
         headers: {
             'Authorization': `Bearer ${newToken}`,
             'x-unit-id': user.unitId // Simulate frontend sending current unit
