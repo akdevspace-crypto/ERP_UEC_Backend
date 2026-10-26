@@ -196,6 +196,14 @@ const rolePermissionMap = {
 };
 
 export const resolveUserAccess = (user) => {
+    if (isAdminRole(user?.role)) {
+        return {
+            permissions: ['ALL_ACCESS'],
+            unitAccess: ['*'],
+            menuPrivilege: null
+        };
+    }
+
     const menuPrivilege = getMenuPrivilege(user?.staff?.metadata);
     // Handle both cases where user.role is an object or a flat string
     const roleName = typeof user?.role === 'object' ? user?.role?.name : user?.role;
@@ -239,14 +247,6 @@ export const resolveUserAccess = (user) => {
         return {
             permissions: withStaffSelfService(user),
             unitAccess: [user?.unitId].filter(Boolean),
-            menuPrivilege: null
-        };
-    }
-
-    if (isAdminRole(user?.role)) {
-        return {
-            permissions: ['ALL_ACCESS'],
-            unitAccess: ['*'],
             menuPrivilege: null
         };
     }

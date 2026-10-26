@@ -297,7 +297,7 @@ export const handleGetMyAttendanceLogs = async (req, res, next) => {
             req.user.id,
             { date: req.query.date }
         );
-        return success(res, logs);
+        return success(res, logs, { isStaffLinked: Boolean(req.user?.staff?.id) });
     } catch (error) {
         next(error);
     }
@@ -345,7 +345,7 @@ export const handleGetMyLeaveRequests = async (req, res, next) => {
             req.context?.tenantId || req.user.tenantId,
             req.user.id
         );
-        return success(res, leaveRequests);
+        return success(res, leaveRequests, { isStaffLinked: Boolean(req.user?.staff?.id) });
     } catch (error) {
         next(error);
     }
