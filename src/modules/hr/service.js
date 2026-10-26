@@ -1141,7 +1141,7 @@ export const getMyAttendanceLogs = async (tenantId, userId, options = {}) => {
     });
 
     if (!staff) {
-        throw buildHttpError('No staff profile is linked to this login', 404);
+        return [];
     }
 
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { timezone: true } });
@@ -1296,7 +1296,7 @@ export const getMyLeaveRequests = async (tenantId, userId) => {
         where: { tenantId, userId, isDeleted: false },
         select: { id: true, empId: true, firstName: true, lastName: true, designation: true, department: true, unitId: true }
     });
-    if (!staff) throw buildHttpError('No staff profile is linked to this login', 404);
+    if (!staff) return [];
     
     const unitName = staff.unitId ? (await prisma.unit.findUnique({ where: { id: staff.unitId } }))?.name || staff.unitId : staff.unitId;
     const staffObj = { ...staff, unitName };
